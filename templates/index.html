@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Chafe Escape</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
+                <span>Chafe Escape</span>
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link active" href="{{ url_for('index') }}">Home</a>
+                <a class="nav-link" href="{{ url_for('about') }}">About</a>
+                <a class="nav-link" href="{{ url_for('products') }}">Products</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-shell">
+        <div class="container">
+            <section class="landing-grid">
+                <article class="hero-card hero-card-home text-center text-lg-start">
+                    <div class="mb-4">
+                        <div class="badge-soft mb-3">Human-first Performance Care</div>
+                        <h1 class="page-title">Stay in flow, not in friction.</h1>
+                        <p class="page-subtitle">
+                            Chafe Escape delivers minimalist, high-performance care so runners can stay focused on their miles, not their discomfort.
+                        </p>
+                    </div>
+                    <div class="d-flex flex-column flex-sm-row gap-3 hero-actions">
+                        <a href="{{ url_for('products') }}" class="btn btn-primary">Explore the collection</a>
+                        <a href="{{ url_for('about') }}" class="btn btn-ghost">Meet the team</a>
+                    </div>
+                    <div class="hero-insights mt-4">
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Community miles logged</span>
+                            <strong>2.3M+</strong>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Derm-approved blends</span>
+                            <strong>8 actives</strong>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Weekly orders packed</span>
+                            <strong>4,800</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <aside class="showcase-column">
+                    <div class="content-card highlight-card">
+                        <h5 class="text-uppercase text-muted mb-3">Coach's corner</h5>
+                        <p class="mb-4 text-muted">
+                            Pair Glide Serum with Pulse Wipes before tempo days to keep stride mechanics smooth even when humidity spikes.
+                        </p>
+                        <div class="avatar-row">
+                            <span class="avatar-dot"></span>
+                            <span class="avatar-dot"></span>
+                            <span class="avatar-dot"></span>
+                            <span class="text-muted">Trusted by pace crews nationwide</span>
+                        </div>
+                    </div>
+
+                    {% if featured_products %}
+                        <div class="featured-grid">
+                            {% for product in featured_products %}
+                                <div class="product-card featured-card">
+                                    {% if product['image_path'] %}
+                                        <div class="product-card-media mb-3">
+                                            <img src="{{ url_for('static', filename=product['image_path']) }}" alt="{{ product['name'] }} product image">
+                                        </div>
+                                    {% endif %}
+                                    <div class="product-meta mb-2">
+                                        {% if product['sku'] %}
+                                            <span class="pill">SKU {{ product['sku'] }}</span>
+                                        {% endif %}
+                                        <span class="pill">Stock {{ product['inventory_count'] }}</span>
+                                    </div>
+                                    <h3 class="h5 mb-2">{{ product['name'] }}</h3>
+                                    <p class="text-muted">{{ product['description'] }}</p>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <span class="fw-semibold">${{ "%.2f"|format(product['price']) }}</span>
+                                        <a href="{{ url_for('products') }}" class="btn btn-ghost btn-sm">View</a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <strong>Inventory loading</strong>
+                            Hop into the admin app to add products and they will appear here automatically.
+                        </div>
+                    {% endif %}
+                </aside>
+            </section>
+
+            <section class="experience-band">
+                <div class="experience-card content-card">
+                    <h4 class="h5 mb-2">Zero-friction labs</h4>
+                    <p class="text-muted mb-0">Monthly wear-tests with ultrarunners keep our base formulas dialled for real race conditions.</p>
+                </div>
+                <div class="experience-card content-card">
+                    <h4 class="h5 mb-2">Community shakeouts</h4>
+                    <p class="text-muted mb-0">Pop-up group runs every Saturday in six cities with recovery lounges and product swaps.</p>
+                </div>
+                <div class="experience-card content-card">
+                    <h4 class="h5 mb-2">Support on demand</h4>
+                    <p class="text-muted mb-0">Chat with coaches and dermatologists in-app for pre-race prep or to troubleshoot hot spots.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text">&copy; 2024 Chafe Escape. Built for learning Flask.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

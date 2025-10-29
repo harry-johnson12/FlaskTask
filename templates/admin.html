@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Chafe Escape</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
+                <span>Chafe Escape Admin</span>
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="page-shell">
+        <div class="container">
+            {% if message %}
+                <div class="alert alert-success mb-4">{{ message }}</div>
+            {% elif error %}
+                <div class="alert alert-danger mb-4">{{ error }}</div>
+            {% endif %}
+
+            <div class="row grid-tight">
+                <div class="col-lg-5">
+                    <div class="admin-card mb-4 mb-lg-4">
+                        <h1 class="page-title fs-2">Add a new product</h1>
+                        <p class="text-muted mb-4">Inventory stays in sync with the public site, so updates here land instantly.</p>
+
+                        <form method="post" novalidate class="admin-form" enctype="multipart/form-data">
+                            <input type="hidden" name="action" value="create_product">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ product_form.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" rows="3" required>{{ product_form.description }}</textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="price" class="form-label">Price</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="text" class="form-control" id="price" name="price" value="{{ product_form.price }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="inventory_count" class="form-label">Inventory</label>
+                                    <input type="text" class="form-control" id="inventory_count" name="inventory_count" value="{{ product_form.inventory_count }}">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="sku" class="form-label">SKU (optional)</label>
+                                <input type="text" class="form-control" id="sku" name="sku" value="{{ product_form.sku }}">
+                            </div>
+                            <div class="mb-4">
+                                <label for="image" class="form-label">Product image</label>
+                                <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                                <div class="form-text">Transparent PNG or JPG, at least 600px on the shortest side.</div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Save product</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="admin-card">
+                        <h2 class="h4 mb-3">Invite a customer</h2>
+                        <p class="text-muted">Add shoppers here to let them receive login details and follow-up campaigns.</p>
+
+                        <form method="post" novalidate class="admin-form">
+                            <input type="hidden" name="action" value="create_customer">
+                            <div class="row">
+                                <div class="col-sm-6 mb-3">
+                                    <label for="first_name" class="form-label">First name</label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ customer_form.first_name }}" required>
+                                </div>
+                                <div class="col-sm-6 mb-3">
+                                    <label for="last_name" class="form-label">Last name</label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ customer_form.last_name }}" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ customer_form.email }}" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Add customer</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="col-lg-7">
+                    <div class="admin-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h4 mb-0">Manage products</h2>
+                            <span class="pill">Live sync</span>
+                        </div>
+                        {% if products %}
+                            <div class="product-edit-list">
+                                {% for product in products %}
+                                    <form method="post" enctype="multipart/form-data" class="admin-form product-edit-form">
+                                        <input type="hidden" name="product_id" value="{{ product['id'] }}">
+                                        <input type="hidden" name="current_image" value="{{ product['image_path'] or '' }}">
+                                        <div class="product-edit-top">
+                                            {% if product['image_path'] %}
+                                                <img src="{{ url_for('static', filename=product['image_path']) }}" alt="{{ product['name'] }} thumbnail" class="product-edit-image">
+                                            {% else %}
+                                                <div class="product-edit-image placeholder">No image</div>
+                                            {% endif %}
+                                            <div class="flex-grow-1">
+                                                <label class="form-label">Name</label>
+                                                <input type="text" class="form-control" name="name" value="{{ product['name'] }}" required>
+                                            </div>
+                                            <div class="product-edit-price">
+                                                <label class="form-label">Price</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="text" class="form-control" name="price" value="{{ '%.2f'|format(product['price']) }}" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="product-edit-grid">
+                                            <div class="grid-span-2">
+                                                <label class="form-label">Description</label>
+                                                <textarea class="form-control" name="description" rows="2" required>{{ product['description'] }}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="form-label">Inventory</label>
+                                                <input type="text" class="form-control" name="inventory_count" value="{{ product['inventory_count'] }}">
+                                            </div>
+                                            <div>
+                                                <label class="form-label">SKU</label>
+                                                <input type="text" class="form-control" name="sku" value="{{ product['sku'] or '' }}">
+                                            </div>
+                                            <div class="grid-span-2">
+                                                <label class="form-label">Replace image</label>
+                                                <input type="file" class="form-control" name="image" accept="image/*">
+                                                {% if product['image_path'] %}
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input" type="checkbox" name="remove_image" value="1" id="remove-image-{{ product['id'] }}">
+                                                        <label class="form-check-label small text-muted" for="remove-image-{{ product['id'] }}">Remove current image</label>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="product-edit-actions">
+                                            <button type="submit" name="action" value="edit_product" class="btn btn-primary btn-sm">Update product</button>
+                                            <button type="submit" name="action" value="delete_product" class="btn btn-link text-danger px-0">Delete</button>
+                                        </div>
+                                    </form>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <strong>No products yet</strong>
+                                Add your first product to see real-time inventory here.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="admin-card mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h4 mb-0">Customer directory</h2>
+                            <span class="pill">Auth ready</span>
+                        </div>
+                        {% if customers %}
+                            <div class="admin-table table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Name</th>
+                                            <th scope="col">Email</th>
+                                            <th scope="col">Joined</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for customer in customers %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-semibold">
+                                                        {{ customer['first_name'] }} {{ customer['last_name'] }}
+                                                    </div>
+                                                </td>
+                                                <td class="text-muted">{{ customer['email'] }}</td>
+                                                <td class="text-muted">{{ customer['created_at'] }}</td>
+                                                <td class="text-end">
+                                                    <form method="post" class="d-inline">
+                                                        <input type="hidden" name="action" value="delete_customer">
+                                                        <input type="hidden" name="customer_id" value="{{ customer['id'] }}">
+                                                        <button type="submit" class="btn btn-link text-danger p-0">Remove</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <strong>No customers yet</strong>
+                                Add profiles to begin tracking customer logins and orders.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container text-center">
+            <p class="footer-text mb-0">&copy; 2024 Chafe Escape Admin.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

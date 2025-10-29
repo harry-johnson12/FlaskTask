@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Chafe Escape</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
+                <span>Chafe Escape</span>
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                <a class="nav-link" href="{{ url_for('about') }}">About</a>
+                <a class="nav-link active" href="{{ url_for('products') }}">Products</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-shell">
+        <div class="container">
+            <div class="row justify-content-center grid-tight">
+                <div class="col-lg-10">
+                    <div class="hero-card text-center mb-5">
+                        <div class="badge-soft mb-3">Product lineup</div>
+                        <h1 class="page-title">Elevated care for every mile.</h1>
+                        <p class="page-subtitle">Explore essentials that keep your training light, balanced, and distraction free.</p>
+                    </div>
+
+                    {% if products %}
+                        <div class="row grid-tight">
+                            {% for product in products %}
+                                <div class="col-md-6 col-xl-4">
+                                    <div class="product-card h-100">
+                                        {% if product['image_path'] %}
+                                            <div class="product-card-media mb-3">
+                                                <img src="{{ url_for('static', filename=product['image_path']) }}" alt="{{ product['name'] }} product image">
+                                            </div>
+                                        {% endif %}
+                                        <div class="product-meta mb-3">
+                                            {% if product['sku'] %}
+                                                <span class="pill">SKU {{ product['sku'] }}</span>
+                                            {% endif %}
+                                            <span class="pill">Stock {{ product['inventory_count'] }}</span>
+                                        </div>
+                                        <h3>{{ product['name'] }}</h3>
+                                        <p class="text-muted">{{ product['description'] }}</p>
+                                        <div class="d-flex align-items-baseline justify-content-between">
+                                            <span class="fw-semibold fs-5">${{ "%.2f"|format(product['price']) }}</span>
+                                            <button class="btn btn-ghost btn-sm">Details</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8">
+                                <div class="empty-state">
+                                    <strong>Products coming soon</strong>
+                                    Add items through the admin portal and they will appear here automatically.
+                                    <div class="mt-3 text-muted">
+                                        Admin portal: <code>python admin_app.py</code> → http://localhost:5001
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="text-center mt-5">
+                        <a href="{{ url_for('index') }}" class="btn btn-ghost me-3">Back home</a>
+                        <a href="{{ url_for('about') }}" class="btn btn-primary">About us</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text">&copy; 2024 Chafe Escape. Built for learning Flask.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
