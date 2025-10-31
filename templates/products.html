@@ -15,10 +15,16 @@
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
                 <span>Chafe Escape</span>
             </a>
-            <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto align-items-center gap-2">
                 <a class="nav-link" href="{{ url_for('index') }}">Home</a>
                 <a class="nav-link" href="{{ url_for('about') }}">About</a>
                 <a class="nav-link active" href="{{ url_for('products') }}">Products</a>
+                <a class="nav-link cart-link" href="{{ url_for('cart') }}">
+                    Cart
+                    {% if cart_item_count %}
+                        <span class="cart-count">{{ cart_item_count }}</span>
+                    {% endif %}
+                </a>
             </div>
         </div>
     </nav>
@@ -53,7 +59,7 @@
                                         <p class="text-muted">{{ product['description'] }}</p>
                                         <div class="d-flex align-items-baseline justify-content-between">
                                             <span class="fw-semibold fs-5">${{ "%.2f"|format(product['price']) }}</span>
-                                            <button class="btn btn-ghost btn-sm">Details</button>
+                                            <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="btn btn-ghost btn-sm">Details</a>
                                         </div>
                                     </div>
                                 </div>

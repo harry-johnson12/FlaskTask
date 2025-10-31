@@ -35,7 +35,7 @@
                         <h1 class="page-title fs-2">Add a new product</h1>
                         <p class="text-muted mb-4">Inventory stays in sync with the public site, so updates here land instantly.</p>
 
-                        <form method="post" novalidate class="admin-form" enctype="multipart/form-data">
+                        <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" novalidate class="admin-form" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="create_product">
                             <div class="mb-3">
                                 <label for="name" class="form-label">Name</label>
@@ -77,7 +77,7 @@
                         <h2 class="h4 mb-3">Invite a customer</h2>
                         <p class="text-muted">Add shoppers here to let them receive login details and follow-up campaigns.</p>
 
-                        <form method="post" novalidate class="admin-form">
+                        <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" novalidate class="admin-form">
                             <input type="hidden" name="action" value="create_customer">
                             <div class="row">
                                 <div class="col-sm-6 mb-3">
@@ -101,15 +101,68 @@
                 </div>
 
                 <div class="col-lg-7">
+                    <div class="admin-card product-filter-card mb-4">
+                        <form method="get" class="admin-form filter-form">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-6 col-xl-5">
+                                    <label for="catalog-search" class="form-label">Search catalogue</label>
+                                    <input type="search" class="form-control" id="catalog-search" name="search" value="{{ product_filters.search }}" placeholder="Name, SKU, description">
+                                </div>
+                                <div class="col-md-3 col-xl-3">
+                                    <label for="stock-filter" class="form-label">Stock</label>
+                                    <select class="form-select" id="stock-filter" name="stock">
+                                        <option value="all" {% if product_filters.stock == 'all' %}selected{% endif %}>All stock</option>
+                                        <option value="in" {% if product_filters.stock == 'in' %}selected{% endif %}>In stock</option>
+                                        <option value="low" {% if product_filters.stock == 'low' %}selected{% endif %}>Low stock &lt;= 10</option>
+                                        <option value="out" {% if product_filters.stock == 'out' %}selected{% endif %}>Out of stock</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 col-xl-3">
+                                    <label for="sort-filter" class="form-label">Sort by</label>
+                                    <select class="form-select" id="sort-filter" name="sort">
+                                        <option value="newest" {% if product_filters.sort == 'newest' %}selected{% endif %}>Newest</option>
+                                        <option value="oldest" {% if product_filters.sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                                        <option value="name_az" {% if product_filters.sort == 'name_az' %}selected{% endif %}>Name A → Z</option>
+                                        <option value="name_za" {% if product_filters.sort == 'name_za' %}selected{% endif %}>Name Z → A</option>
+                                        <option value="price_low" {% if product_filters.sort == 'price_low' %}selected{% endif %}>Price low → high</option>
+                                        <option value="price_high" {% if product_filters.sort == 'price_high' %}selected{% endif %}>Price high → low</option>
+                                        <option value="inventory_low" {% if product_filters.sort == 'inventory_low' %}selected{% endif %}>Inventory low → high</option>
+                                        <option value="inventory_high" {% if product_filters.sort == 'inventory_high' %}selected{% endif %}>Inventory high → low</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12 col-xl-1">
+                                    <button type="submit" class="btn btn-primary w-100">Apply</button>
+                                </div>
+                            </div>
+                            <div class="filter-form-actions d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                                <p class="text-muted small mb-0">
+                                    {% if product_filters.has_active %}
+                                        Filters active. Showing {{ product_count }} result{% if product_count != 1 %}s{% endif %}.
+                                    {% else %}
+                                        Use filters to focus on specific SKUs.
+                                    {% endif %}
+                                </p>
+                                {% if product_filters.has_active %}
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-link filter-clear px-0">Clear filters</a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
                     <div class="admin-card">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h4 mb-0">Manage products</h2>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                            <div>
+                                <h2 class="h4 mb-1">Manage products</h2>
+                                <p class="text-muted small mb-0">
+                                    Showing {{ product_count }} product{% if product_count != 1 %}s{% endif %}
+                                    {% if product_filters.has_active %} • Filters active{% endif %}
+                                </p>
+                            </div>
                             <span class="pill">Live sync</span>
                         </div>
                         {% if products %}
                             <div class="product-edit-list">
                                 {% for product in products %}
-                                    <form method="post" enctype="multipart/form-data" class="admin-form product-edit-form">
+                                    <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" enctype="multipart/form-data" class="admin-form product-edit-form">
                                         <input type="hidden" name="product_id" value="{{ product['id'] }}">
                                         <input type="hidden" name="current_image" value="{{ product['image_path'] or '' }}">
                                         <div class="product-edit-top">
@@ -163,8 +216,13 @@
                             </div>
                         {% else %}
                             <div class="empty-state">
-                                <strong>No products yet</strong>
-                                Add your first product to see real-time inventory here.
+                                {% if product_filters.has_active %}
+                                    <strong>No products match your filters</strong>
+                                    Adjust or clear the filters to surface additional inventory.
+                                {% else %}
+                                    <strong>No products yet</strong>
+                                    Add your first product to see real-time inventory here.
+                                {% endif %}
                             </div>
                         {% endif %}
                     </div>
@@ -196,7 +254,7 @@
                                                 <td class="text-muted">{{ customer['email'] }}</td>
                                                 <td class="text-muted">{{ customer['created_at'] }}</td>
                                                 <td class="text-end">
-                                                    <form method="post" class="d-inline">
+                                                    <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" class="d-inline">
                                                         <input type="hidden" name="action" value="delete_customer">
                                                         <input type="hidden" name="customer_id" value="{{ customer['id'] }}">
                                                         <button type="submit" class="btn btn-link text-danger p-0">Remove</button>

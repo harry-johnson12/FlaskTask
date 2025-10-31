@@ -103,17 +103,90 @@ def insert_product(
         )
 
 
-def fetch_products() -> Iterable[Mapping[str, object]]:
-    """Return all products ordered by most recent first."""
+def fetch_products(
+    *,
+    search: Optional[str] = None,
+    stock_filter: Optional[str] = None,
+    sort: str = "newest",
+) -> Iterable[Mapping[str, object]]:
+    """Return products ordered according to the requested sort and filters."""
+    conditions: list[str] = []
+    params: list[object] = []
+
+    if search:
+        like_term = f"%{search.lower()}%"
+        conditions.append(
+            "(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(COALESCE(sku, '')) LIKE ?)"
+        )
+        params.extend([like_term, like_term, like_term])
+
+    stock_map = {
+        "in": "inventory_count > 0",
+        "low": "inventory_count > 0 AND inventory_count <= 10",
+        "out": "inventory_count <= 0",
+    }
+    stock_clause = stock_map.get((stock_filter or "").lower())
+    if stock_clause:
+        conditions.append(stock_clause)
+
+    order_by_map = {
+        "newest": "id DESC",
+        "oldest": "id ASC",
+        "price_low": "price ASC, id DESC",
+        "price_high": "price DESC, id DESC",
+        "inventory_low": "inventory_count ASC, id DESC",
+        "inventory_high": "inventory_count DESC, id DESC",
+        "name_az": "LOWER(name) ASC, id DESC",
+        "name_za": "LOWER(name) DESC, id DESC",
+    }
+    order_clause = order_by_map.get(sort, order_by_map["newest"])
+
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+
     with get_connection() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT id, name, description, price, sku, inventory_count, image_path
             FROM products
-            ORDER BY id DESC
-            """
+            {where_clause}
+            ORDER BY {order_clause}
+            """,
+            params,
         )
         return [dict(row) for row in rows]
+
+
+def fetch_products_by_ids(product_ids: Iterable[int]) -> list[Mapping[str, object]]:
+    """Return products for the provided ids preserving the original order."""
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for product_id in product_ids:
+        try:
+            pid = int(product_id)
+        except (TypeError, ValueError):
+            continue
+        if pid not in seen:
+            ordered_ids.append(pid)
+            seen.add(pid)
+
+    if not ordered_ids:
+        return []
+
+    placeholders = ", ".join("?" for _ in ordered_ids)
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT id, name, description, price, sku, inventory_count, image_path
+            FROM products
+            WHERE id IN ({placeholders})
+            """,
+            ordered_ids,
+        )
+        lookup = {int(row["id"]): dict(row) for row in rows}
+
+    return [lookup[pid] for pid in ordered_ids if pid in lookup]
 
 
 def insert_customer(first_name: str, last_name: str, email: str) -> int:
@@ -218,29 +291,91 @@ def seed_data() -> None:
             "inventory": 50,
             "image_path": None,
         },
+        {
+            "name": "Aero Shield Stick",
+            "description": "Wind-resistant barrier stick that prevents raw spots on exposed skin.",
+            "price": 18.0,
+            "sku": "CE-AS-04",
+            "inventory": 31,
+            "image_path": None,
+        },
+        {
+            "name": "Afterburn Restore Cream",
+            "description": "Ultra-hydrating cream with niacinamide and oat peptides for post-race relief.",
+            "price": 32.0,
+            "sku": "CE-AR-05",
+            "inventory": 27,
+            "image_path": None,
+        },
+        {
+            "name": "Night Shift Recovery Oil",
+            "description": "Overnight recovery oil infused with seabuckthorn to repair micro-abrasions.",
+            "price": 35.0,
+            "sku": "CE-NS-06",
+            "inventory": 18,
+            "image_path": None,
+        },
+        {
+            "name": "Stride Guard Powder",
+            "description": "Talc-free powder that keeps moisture in check during peak humidity miles.",
+            "price": 16.0,
+            "sku": "CE-SG-07",
+            "inventory": 40,
+            "image_path": None,
+        },
+        {
+            "name": "Base Layer Shield",
+            "description": "Spray-on base layer formula designed to prevent seam irritation under kits.",
+            "price": 26.0,
+            "sku": "CE-BS-08",
+            "inventory": 34,
+            "image_path": None,
+        },
+        {
+            "name": "Trail Reset Mist",
+            "description": "On-the-go mist that cools and neutralises salt after technical climbs.",
+            "price": 19.0,
+            "sku": "CE-TR-09",
+            "inventory": 45,
+            "image_path": None,
+        },
+        {
+            "name": "Ultra Repair Duo",
+            "description": "Two-step kit combining Glide Serum and Night Shift Recovery Oil for race weekends.",
+            "price": 56.0,
+            "sku": "CE-UR-10",
+            "inventory": 12,
+            "image_path": None,
+        },
     ]
 
     with get_connection() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
-        if count:
-            return  # Respect any data the admin already entered.
+        current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        target_version = 2
 
-        # Preload a trio of hero products so the storefront has immediate content.
-        for product in samples:
-            conn.execute(
-                """
-                INSERT INTO products (name, description, price, sku, inventory_count, image_path)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    product["name"],
-                    product["description"],
-                    product["price"],
-                    product["sku"],
-                    product["inventory"],
-                    product["image_path"],
-                ),
-            )
+        needs_refresh = current_version < target_version
+        if not needs_refresh:
+            product_count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+            needs_refresh = product_count == 0
+
+        if needs_refresh:
+            conn.execute("DELETE FROM products")
+            for product in samples:
+                conn.execute(
+                    """
+                    INSERT INTO products (name, description, price, sku, inventory_count, image_path)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        product["name"],
+                        product["description"],
+                        product["price"],
+                        product["sku"],
+                        product["inventory"],
+                        product["image_path"],
+                    ),
+                )
+            conn.execute(f"PRAGMA user_version = {target_version}")
 
         # Seed a couple of customers so analytics look alive.
         customer_count = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]

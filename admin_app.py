@@ -1,5 +1,8 @@
 """Admin-only Flask application for managing the store catalogue."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -29,6 +32,36 @@ UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+
+@dataclass
+class ProductFilterState:
+    """Captured filter values plus derived helpers for rendering and redirects."""
+
+    search: str = ""
+    stock: str = "all"
+    sort: str = "newest"
+    fetch_kwargs: dict[str, object] = field(default_factory=dict)
+    query_args: dict[str, str] = field(default_factory=dict)
+    has_active: bool = False
+
+
+def _empty_product_form() -> dict[str, str]:
+    return {
+        "name": "",
+        "description": "",
+        "price": "",
+        "sku": "",
+        "inventory_count": "",
+    }
+
+
+def _empty_customer_form() -> dict[str, str]:
+    return {
+        "first_name": "",
+        "last_name": "",
+        "email": "",
+    }
 
 
 def _allowed_file(filename: str) -> bool:
@@ -69,24 +102,78 @@ def _form_text(field_name: str, fallback: str = "") -> str:
     return raw_value.strip()
 
 
+def _parse_numeric_fields(price_raw: str, inventory_raw: str) -> tuple[Optional[float], Optional[int], Optional[str]]:
+    """Convert price and inventory form inputs while sharing validation messaging."""
+    try:
+        price_value = float(price_raw)
+        inventory_value = int(inventory_raw or 0)
+    except ValueError:
+        return None, None, "Price must be a number and inventory must be a whole number."
+    return price_value, inventory_value, None
+
+
+def _parse_product_filters() -> ProductFilterState:
+    """Normalise product filter inputs used by the product editor."""
+    search = request.args.get("search", "").strip()
+    stock = request.args.get("stock", "all").lower()
+    sort = request.args.get("sort", "newest").lower()
+
+    allowed_stock = {"all", "in", "low", "out"}
+    if stock not in allowed_stock:
+        stock = "all"
+
+    allowed_sort = {
+        "newest",
+        "oldest",
+        "price_low",
+        "price_high",
+        "inventory_low",
+        "inventory_high",
+        "name_az",
+        "name_za",
+    }
+    if sort not in allowed_sort:
+        sort = "newest"
+
+    fetch_kwargs: dict[str, object] = {"sort": sort}
+    query_args: dict[str, str] = {}
+
+    if search:
+        fetch_kwargs["search"] = search
+        query_args["search"] = search
+    if stock != "all":
+        fetch_kwargs["stock_filter"] = stock
+        query_args["stock"] = stock
+    if sort != "newest":
+        query_args["sort"] = sort
+
+    has_active = bool(search or stock != "all" or sort != "newest")
+
+    return ProductFilterState(
+        search=search,
+        stock=stock,
+        sort=sort,
+        fetch_kwargs=fetch_kwargs,
+        query_args=query_args,
+        has_active=has_active,
+    )
+
+
+def _redirect_with_success(code: str, filters: ProductFilterState):
+    """Return a redirect response while preserving any active filters."""
+    params = {"success": code, **filters.query_args}
+    return redirect(url_for("dashboard", **params))
+
+
 @admin_app.route("/", methods=["GET", "POST"])
 def dashboard():
     """Lightweight admin panel to manage products and customers."""
     message = None
     error = None
 
-    product_form = {
-        "name": "",
-        "description": "",
-        "price": "",
-        "sku": "",
-        "inventory_count": "",
-    }
-    customer_form = {
-        "first_name": "",
-        "last_name": "",
-        "email": "",
-    }
+    filters = _parse_product_filters()
+    product_form = _empty_product_form()
+    customer_form = _empty_customer_form()
 
     if request.method == "POST":
         action = _form_text("action")
@@ -103,11 +190,11 @@ def dashboard():
             if not (product_form["name"] and product_form["description"] and product_form["price"]):
                 error = "Name, description, and price are required."
             else:
-                try:
-                    price = float(product_form["price"])
-                    inventory_count = int(product_form["inventory_count"] or 0)
-                except ValueError:
-                    error = "Price must be a number and inventory must be a whole number."
+                price, inventory_count, numeric_error = _parse_numeric_fields(
+                    product_form["price"], product_form["inventory_count"]
+                )
+                if numeric_error:
+                    error = numeric_error
                 else:
                     try:
                         image = _save_image(request.files.get("image"))
@@ -117,12 +204,12 @@ def dashboard():
                         insert_product(
                             product_form["name"],
                             product_form["description"],
-                            price,
+                            price if price is not None else 0.0,
                             sku=product_form["sku"] or None,
-                            inventory_count=inventory_count,
+                            inventory_count=inventory_count if inventory_count is not None else 0,
                             image_path=image,
                         )
-                        return redirect(url_for("dashboard", success="product_created"))
+                        return _redirect_with_success("product_created", filters)
 
         elif action == "edit_product":
             try:
@@ -147,11 +234,11 @@ def dashboard():
                         "inventory_count", str(existing["inventory_count"])
                     )
 
-                    try:
-                        price_value = float(price_raw)
-                        inventory_value = int(inventory_raw or 0)
-                    except ValueError:
-                        error = "Price must be a number and inventory must be a whole number."
+                    price_value, inventory_value, numeric_error = _parse_numeric_fields(
+                        price_raw, inventory_raw
+                    )
+                    if numeric_error:
+                        error = numeric_error
                     else:
                         try:
                             new_image = _save_image(request.files.get("image"))
@@ -174,12 +261,12 @@ def dashboard():
                                 product_id,
                                 name=name,
                                 description=description,
-                                price=price_value,
+                                price=price_value if price_value is not None else existing["price"],
                                 sku=sku,
-                                inventory_count=inventory_value,
+                                inventory_count=inventory_value if inventory_value is not None else existing["inventory_count"],
                                 image_path=image_path,
                             )
-                            return redirect(url_for("dashboard", success="product_updated"))
+                            return _redirect_with_success("product_updated", filters)
 
         elif action == "delete_product":
             try:
@@ -193,7 +280,7 @@ def dashboard():
                 else:
                     _delete_image(product.get("image_path"))
                     delete_product(product_id)
-                    return redirect(url_for("dashboard", success="product_deleted"))
+                    return _redirect_with_success("product_deleted", filters)
 
         elif action == "create_customer":
             customer_form = {
@@ -210,7 +297,7 @@ def dashboard():
                     customer_form["last_name"],
                     customer_form["email"],
                 )
-                return redirect(url_for("dashboard", success="customer_created"))
+                return _redirect_with_success("customer_created", filters)
 
         elif action == "delete_customer":
             try:
@@ -219,7 +306,7 @@ def dashboard():
                 error = "Could not resolve the customer to delete."
             else:
                 delete_customer(customer_id)
-                return redirect(url_for("dashboard", success="customer_deleted"))
+                return _redirect_with_success("customer_deleted", filters)
 
         else:
             error = "Unknown admin action requested."
@@ -235,7 +322,8 @@ def dashboard():
     if success_code and success_code in success_messages:
         message = success_messages[success_code]
 
-    products = fetch_products()
+    products = list(fetch_products(**filters.fetch_kwargs))
+    product_count = len(products)
     customers = fetch_customers()
 
     return render_template(
@@ -246,6 +334,8 @@ def dashboard():
         customer_form=customer_form,
         products=products,
         customers=customers,
+        product_filters=filters,
+        product_count=product_count,
     )
 
 

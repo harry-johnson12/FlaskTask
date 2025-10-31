@@ -15,10 +15,16 @@
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
                 <span>Chafe Escape</span>
             </a>
-            <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto align-items-center gap-2">
                 <a class="nav-link active" href="{{ url_for('index') }}">Home</a>
                 <a class="nav-link" href="{{ url_for('about') }}">About</a>
                 <a class="nav-link" href="{{ url_for('products') }}">Products</a>
+                <a class="nav-link cart-link" href="{{ url_for('cart') }}">
+                    Cart
+                    {% if cart_item_count %}
+                        <span class="cart-count">{{ cart_item_count }}</span>
+                    {% endif %}
+                </a>
             </div>
         </div>
     </nav>
@@ -58,8 +64,31 @@
                     <div class="content-card highlight-card">
                         <h5 class="text-uppercase text-muted mb-3">Coach's corner</h5>
                         <p class="mb-4 text-muted">
-                            Pair Glide Serum with Pulse Wipes before tempo days to keep stride mechanics smooth even when humidity spikes.
+                            Build your race-week ritual with go-to pairings from the lab crew. These stacks were tested in humid double-session weeks so you can train without friction.
                         </p>
+                        <ul class="coach-card-list mb-4">
+                            <li>
+                                <span class="coach-icon">1</span>
+                                <div>
+                                    <strong>Tempo Prep</strong>
+                                    <p class="text-muted mb-0">Glide Serum + Stride Guard Powder keeps hips and thighs smooth when sweat rate climbs.</p>
+                                </div>
+                            </li>
+                            <li>
+                                <span class="coach-icon">2</span>
+                                <div>
+                                    <strong>Trail Reset</strong>
+                                    <p class="text-muted mb-0">Trail Reset Mist layers perfectly after a long climb—follow with Recalibrate Balm for ankle touch-ups.</p>
+                                </div>
+                            </li>
+                            <li>
+                                <span class="coach-icon">3</span>
+                                <div>
+                                    <strong>Race Night</strong>
+                                    <p class="text-muted mb-0">Ultra Repair Duo sets up overnight recovery so you wake up fresh for the starting corrals.</p>
+                                </div>
+                            </li>
+                        </ul>
                         <div class="avatar-row">
                             <span class="avatar-dot"></span>
                             <span class="avatar-dot"></span>
@@ -87,7 +116,7 @@
                                     <p class="text-muted">{{ product['description'] }}</p>
                                     <div class="d-flex justify-content-between align-items-center mt-3">
                                         <span class="fw-semibold">${{ "%.2f"|format(product['price']) }}</span>
-                                        <a href="{{ url_for('products') }}" class="btn btn-ghost btn-sm">View</a>
+                                        <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="btn btn-ghost btn-sm">View</a>
                                     </div>
                                 </div>
                             {% endfor %}
