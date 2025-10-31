@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, cast
 from uuid import uuid4
 
 from flask import Flask, redirect, render_template, request, url_for
@@ -41,7 +41,7 @@ class ProductFilterState:
     search: str = ""
     stock: str = "all"
     sort: str = "newest"
-    fetch_kwargs: dict[str, object] = field(default_factory=dict)
+    fetch_kwargs: dict[str, Any] = field(default_factory=dict)
     query_args: dict[str, str] = field(default_factory=dict)
     has_active: bool = False
 
@@ -135,7 +135,7 @@ def _parse_product_filters() -> ProductFilterState:
     if sort not in allowed_sort:
         sort = "newest"
 
-    fetch_kwargs: dict[str, object] = {"sort": sort}
+    fetch_kwargs: dict[str, Any] = {"sort": sort}
     query_args: dict[str, str] = {}
 
     if search:
@@ -162,7 +162,7 @@ def _parse_product_filters() -> ProductFilterState:
 def _redirect_with_success(code: str, filters: ProductFilterState):
     """Return a redirect response while preserving any active filters."""
     params = {"success": code, **filters.query_args}
-    return redirect(url_for("dashboard", **params))
+    return redirect(url_for("dashboard", **cast(dict[str, Any], params)))
 
 
 @admin_app.route("/", methods=["GET", "POST"])
@@ -223,13 +223,13 @@ def dashboard():
                 else:
                     # Use the hidden field so admins can opt to clear the image entirely.
                     current_image = _form_text(
-                        "current_image", existing.get("image_path") or ""
-                    ) or existing.get("image_path")
+                        "current_image", str(cast(Optional[str], existing.get("image_path")) or "")
+                    ) or cast(Optional[str], existing.get("image_path"))
                     should_remove_image = _form_text("remove_image") == "1"
-                    name = _form_text("name", existing["name"])
-                    description = _form_text("description", existing["description"])
+                    name = _form_text("name", str(cast(str, existing["name"])))
+                    description = _form_text("description", str(cast(str, existing["description"])))
                     price_raw = _form_text("price", f"{existing['price']}")
-                    sku = _form_text("sku", existing["sku"] or "") or None
+                    sku = _form_text("sku", str(cast(Optional[str], existing.get("sku")) or "")) or None
                     inventory_raw = _form_text(
                         "inventory_count", str(existing["inventory_count"])
                     )
@@ -261,9 +261,9 @@ def dashboard():
                                 product_id,
                                 name=name,
                                 description=description,
-                                price=price_value if price_value is not None else existing["price"],
+                                price=price_value if price_value is not None else float(str(existing["price"])),
                                 sku=sku,
-                                inventory_count=inventory_value if inventory_value is not None else existing["inventory_count"],
+                                inventory_count=inventory_value if inventory_value is not None else int(str(existing["inventory_count"])),
                                 image_path=image_path,
                             )
                             return _redirect_with_success("product_updated", filters)
@@ -278,7 +278,7 @@ def dashboard():
                 if not product:
                     error = "Could not find the product to delete."
                 else:
-                    _delete_image(product.get("image_path"))
+                    _delete_image(cast(Optional[str], product.get("image_path")))
                     delete_product(product_id)
                     return _redirect_with_success("product_deleted", filters)
 

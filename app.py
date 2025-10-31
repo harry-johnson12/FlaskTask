@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Union
 
 from flask import (
     Flask,
@@ -14,6 +14,8 @@ from flask import (
     session,
     url_for,
 )
+
+from werkzeug.wrappers import Response
 
 from database import (
     fetch_products,
@@ -83,12 +85,12 @@ def products() -> str:
     products = fetch_products()
     return render_template("products.html", products=products)
 
-
 @app.route("/products/<int:product_id>", methods=["GET", "POST"])
-def product_detail(product_id: int) -> str:
+def product_detail(product_id: int) -> Union[str, Response]:
     """Detailed view of a single product with cart actions."""
     product = get_product(product_id)
     if not product:
+        abort(404)
         abort(404)
 
     if request.method == "POST":
@@ -124,7 +126,7 @@ def cart() -> str:
             if not product:
                 continue
             quantity = cart[product_id]
-            line_total = float(product["price"]) * quantity
+            line_total = float(str(product["price"])) * quantity
             total += line_total
             items.append(
                 {
