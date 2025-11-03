@@ -273,7 +273,7 @@ def seed_data() -> None:
             "price": 22.0,
             "sku": "CF-HDMI-21",
             "inventory": 72,
-            "image_path": "https://images.unsplash.com/photo-1580894908361-967195033215?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/pulselink-hdmi.svg",
         },
         {
             "name": "NanoMesh Dupont Jumper Set (120 pack)",
@@ -281,7 +281,7 @@ def seed_data() -> None:
             "price": 14.5,
             "sku": "CF-JPR-120",
             "inventory": 180,
-            "image_path": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/nanomesh-jumpers.svg",
         },
         {
             "name": "VectorForge ATX Motherboard X790",
@@ -289,7 +289,7 @@ def seed_data() -> None:
             "price": 329.0,
             "sku": "CF-MBD-X790",
             "inventory": 26,
-            "image_path": "https://images.unsplash.com/photo-1580894906472-00a37b6e5fcd?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/vectorforge-motherboard.svg",
         },
         {
             "name": "QuantumBlade NVMe SSD 2TB",
@@ -297,7 +297,7 @@ def seed_data() -> None:
             "price": 199.0,
             "sku": "CF-SSD-QB2",
             "inventory": 64,
-            "image_path": "https://images.unsplash.com/photo-1517433456452-f9633a875f6f?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/quantumblade-ssd.svg",
         },
         {
             "name": "Helios 850W Modular PSU (80+ Platinum)",
@@ -305,7 +305,7 @@ def seed_data() -> None:
             "price": 189.0,
             "sku": "CF-PSU-850P",
             "inventory": 41,
-            "image_path": "https://images.unsplash.com/photo-1624704764770-10284c658023?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/helios-psu.svg",
         },
         {
             "name": "AuroraFlex USB-C Hub Pro",
@@ -313,7 +313,7 @@ def seed_data() -> None:
             "price": 129.0,
             "sku": "CF-HUB-AF9",
             "inventory": 58,
-            "image_path": "https://images.unsplash.com/photo-1587202372775-98927a9d23ee?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/auroraflex-hub.svg",
         },
         {
             "name": "TitanEdge GPU Bracket (ARGB)",
@@ -321,7 +321,7 @@ def seed_data() -> None:
             "price": 39.0,
             "sku": "CF-GPU-TED",
             "inventory": 97,
-            "image_path": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/titanedge-bracket.svg",
         },
         {
             "name": "IonCore Thermal Paste X9",
@@ -329,7 +329,7 @@ def seed_data() -> None:
             "price": 11.0,
             "sku": "CF-THP-X9",
             "inventory": 240,
-            "image_path": "https://images.unsplash.com/photo-1580894897249-4c37c03fed7a?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/ioncore-thermal.svg",
         },
         {
             "name": "MatrixLab Precision Screwdriver Set",
@@ -337,7 +337,7 @@ def seed_data() -> None:
             "price": 54.0,
             "sku": "CF-TLS-M40",
             "inventory": 88,
-            "image_path": "https://images.unsplash.com/photo-1582719478250-63cb8f8ca68c?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/matrixlab-tools.svg",
         },
         {
             "name": "GridWave Wi-Fi 7 Router",
@@ -345,7 +345,7 @@ def seed_data() -> None:
             "price": 289.0,
             "sku": "CF-NET-GW7",
             "inventory": 35,
-            "image_path": "https://images.unsplash.com/photo-1595433707802-6b2626ef093d?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/gridwave-router.svg",
         },
         {
             "name": "LumenStrip Addressable LED Kit",
@@ -353,7 +353,7 @@ def seed_data() -> None:
             "price": 59.0,
             "sku": "CF-LIT-LMK",
             "inventory": 120,
-            "image_path": "https://images.unsplash.com/photo-1541532713592-79a0317b6b77?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/lumenstrip-kit.svg",
         },
         {
             "name": "OptiMesh 140mm PWM Fan (2 pack)",
@@ -361,13 +361,13 @@ def seed_data() -> None:
             "price": 44.0,
             "sku": "CF-FAN-140P",
             "inventory": 105,
-            "image_path": "https://images.unsplash.com/photo-1580894894513-541e068a0d0e?auto=format&fit=crop&w=900&q=80",
+            "image_path": "img/products/optimesh-fan.svg",
         },
     ]
 
     with get_connection() as conn:
         current_version = conn.execute("PRAGMA user_version").fetchone()[0]
-        target_version = 3
+        target_version = 4
 
         needs_refresh = current_version < target_version
         if not needs_refresh:

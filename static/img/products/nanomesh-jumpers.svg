@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+    <rect x="6" y="6" width="108" height="108" rx="16" fill="#fff" stroke="#101014" stroke-width="2"/>
+    <path d="M30 36v48" stroke="#0f62fe" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 6"/>
+    <path d="M46 30v60" stroke="#101014" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 6"/>
+    <path d="M60 36v48" stroke="#0f62fe" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 6"/>
+    <path d="M74 30v60" stroke="#101014" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 6"/>
+    <path d="M90 36v48" stroke="#0f62fe" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 6"/>
+    <rect x="24" y="30" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+    <rect x="40" y="24" width="12" height="12" rx="3" fill="#101014" opacity="0.15"/>
+    <rect x="54" y="30" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+    <rect x="68" y="24" width="12" height="12" rx="3" fill="#101014" opacity="0.15"/>
+    <rect x="84" y="30" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+    <rect x="24" y="78" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+    <rect x="40" y="78" width="12" height="12" rx="3" fill="#101014" opacity="0.15"/>
+    <rect x="54" y="78" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+    <rect x="68" y="78" width="12" height="12" rx="3" fill="#101014" opacity="0.15"/>
+    <rect x="84" y="78" width="12" height="12" rx="3" fill="#0f62fe" opacity="0.25"/>
+</svg>

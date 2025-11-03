@@ -162,57 +162,71 @@
                         {% if products %}
                             <div class="product-edit-list">
                                 {% for product in products %}
-                                    <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" enctype="multipart/form-data" class="admin-form product-edit-form">
-                                        <input type="hidden" name="product_id" value="{{ product['id'] }}">
-                                        <input type="hidden" name="current_image" value="{{ product['image_path'] or '' }}">
-                                        <div class="product-edit-top">
-                                            {% if product['image_path'] %}
-                                                {% set image_src = product['image_path'] %}
-                                                <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} thumbnail" class="product-edit-image">
-                                            {% else %}
-                                                <div class="product-edit-image placeholder">No image</div>
-                                            {% endif %}
-                                            <div class="flex-grow-1">
-                                                <label class="form-label">Name</label>
-                                                <input type="text" class="form-control" name="name" value="{{ product['name'] }}" required>
-                                            </div>
-                                            <div class="product-edit-price">
-                                                <label class="form-label">Price</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">$</span>
-                                                    <input type="text" class="form-control" name="price" value="{{ '%.2f'|format(product['price']) }}" required>
+                                    {% set image_src = product['image_path'] %}
+                                    <details class="product-admin-item">
+                                        <summary class="product-admin-summary">
+                                            <div>
+                                                <div class="summary-title">{{ product['name'] }}</div>
+                                                <div class="summary-meta">
+                                                    {% if product['sku'] %}SKU {{ product['sku'] }} · {% endif %}ID {{ product['id'] }}
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="product-edit-grid">
-                                            <div class="grid-span-2">
-                                                <label class="form-label">Description</label>
-                                                <textarea class="form-control" name="description" rows="2" required>{{ product['description'] }}</textarea>
-                                            </div>
-                                            <div>
-                                                <label class="form-label">Inventory</label>
-                                                <input type="text" class="form-control" name="inventory_count" value="{{ product['inventory_count'] }}">
-                                            </div>
-                                            <div>
-                                                <label class="form-label">SKU</label>
-                                                <input type="text" class="form-control" name="sku" value="{{ product['sku'] or '' }}">
-                                            </div>
-                                            <div class="grid-span-2">
-                                                <label class="form-label">Replace image</label>
-                                                <input type="file" class="form-control" name="image" accept="image/*">
-                                                {% if product['image_path'] %}
-                                                    <div class="form-check mt-2">
-                                                        <input class="form-check-input" type="checkbox" name="remove_image" value="1" id="remove-image-{{ product['id'] }}">
-                                                        <label class="form-check-label small text-muted" for="remove-image-{{ product['id'] }}">Remove current image</label>
+                                            <div class="summary-price">${{ '%.2f'|format(product['price']) }}</div>
+                                            <div class="summary-stock">Stock {{ product['inventory_count'] }}</div>
+                                        </summary>
+                                        <div class="product-admin-body">
+                                            <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" enctype="multipart/form-data" class="admin-form product-edit-form">
+                                                <input type="hidden" name="product_id" value="{{ product['id'] }}">
+                                                <input type="hidden" name="current_image" value="{{ product['image_path'] or '' }}">
+                                                <div class="product-edit-top">
+                                                    {% if product['image_path'] %}
+                                                        <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} thumbnail" class="product-edit-image">
+                                                    {% else %}
+                                                        <div class="product-edit-image placeholder">No image</div>
+                                                    {% endif %}
+                                                    <div class="flex-grow-1">
+                                                        <label class="form-label">Name</label>
+                                                        <input type="text" class="form-control" name="name" value="{{ product['name'] }}" required>
                                                     </div>
-                                                {% endif %}
-                                            </div>
+                                                    <div class="product-edit-price">
+                                                        <label class="form-label">Price</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">$</span>
+                                                            <input type="text" class="form-control" name="price" value="{{ '%.2f'|format(product['price']) }}" required>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="product-edit-grid">
+                                                    <div class="grid-span-2">
+                                                        <label class="form-label">Description</label>
+                                                        <textarea class="form-control" name="description" rows="3" required>{{ product['description'] }}</textarea>
+                                                    </div>
+                                                    <div>
+                                                        <label class="form-label">Inventory</label>
+                                                        <input type="text" class="form-control" name="inventory_count" value="{{ product['inventory_count'] }}">
+                                                    </div>
+                                                    <div>
+                                                        <label class="form-label">SKU</label>
+                                                        <input type="text" class="form-control" name="sku" value="{{ product['sku'] or '' }}">
+                                                    </div>
+                                                    <div class="grid-span-2">
+                                                        <label class="form-label">Replace image</label>
+                                                        <input type="file" class="form-control" name="image" accept="image/*">
+                                                        {% if product['image_path'] %}
+                                                            <div class="form-check mt-2">
+                                                                <input class="form-check-input" type="checkbox" name="remove_image" value="1" id="remove-image-{{ product['id'] }}">
+                                                                <label class="form-check-label small text-muted" for="remove-image-{{ product['id'] }}">Remove current image</label>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                <div class="product-edit-actions">
+                                                    <button type="submit" name="action" value="edit_product" class="btn btn-primary btn-sm">Update product</button>
+                                                    <button type="submit" name="action" value="delete_product" class="btn btn-link text-danger px-0">Delete</button>
+                                                </div>
+                                            </form>
                                         </div>
-                                        <div class="product-edit-actions">
-                                            <button type="submit" name="action" value="edit_product" class="btn btn-primary btn-sm">Update product</button>
-                                            <button type="submit" name="action" value="delete_product" class="btn btn-link text-danger px-0">Delete</button>
-                                        </div>
-                                    </form>
+                                    </details>
                                 {% endfor %}
                             </div>
                         {% else %}

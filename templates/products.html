@@ -36,7 +36,53 @@
                     <div class="hero-card text-center mb-5">
                         <div class="badge-soft mb-3">Component library</div>
                         <h1 class="page-title">Every signal, every scale.</h1>
-                        <p class="page-subtitle">Explore curated hardware spanning rapid prototypes to production deployments.</p>
+                        <p class="page-subtitle">Filter the shelves to surface the exact boards, wiring, and tools your next build needs.</p>
+                    </div>
+
+                    <div class="catalog-controls mb-5">
+                        <form method="get" class="row g-3 align-items-end">
+                            <div class="col-lg-5">
+                                <label for="catalog-search" class="form-label">Search catalogue</label>
+                                <input type="search" class="form-control" id="catalog-search" name="search" placeholder="Name, SKU, or keywords" value="{{ filters.search }}">
+                            </div>
+                            <div class="col-sm-4 col-lg-3">
+                                <label for="catalog-stock" class="form-label">Stock state</label>
+                                <select class="form-select" id="catalog-stock" name="stock">
+                                    <option value="all" {% if filters.stock == 'all' %}selected{% endif %}>All inventory</option>
+                                    <option value="in" {% if filters.stock == 'in' %}selected{% endif %}>In stock</option>
+                                    <option value="low" {% if filters.stock == 'low' %}selected{% endif %}>Low stock (≤ 10)</option>
+                                    <option value="out" {% if filters.stock == 'out' %}selected{% endif %}>Out of stock</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-4 col-lg-3">
+                                <label for="catalog-sort" class="form-label">Sort</label>
+                                <select class="form-select" id="catalog-sort" name="sort">
+                                    <option value="newest" {% if filters.sort == 'newest' %}selected{% endif %}>Newest arrivals</option>
+                                    <option value="oldest" {% if filters.sort == 'oldest' %}selected{% endif %}>Oldest first</option>
+                                    <option value="name_az" {% if filters.sort == 'name_az' %}selected{% endif %}>Name A → Z</option>
+                                    <option value="name_za" {% if filters.sort == 'name_za' %}selected{% endif %}>Name Z → A</option>
+                                    <option value="price_low" {% if filters.sort == 'price_low' %}selected{% endif %}>Price low → high</option>
+                                    <option value="price_high" {% if filters.sort == 'price_high' %}selected{% endif %}>Price high → low</option>
+                                    <option value="inventory_low" {% if filters.sort == 'inventory_low' %}selected{% endif %}>Inventory low → high</option>
+                                    <option value="inventory_high" {% if filters.sort == 'inventory_high' %}selected{% endif %}>Inventory high → low</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-4 col-lg-1">
+                                <button type="submit" class="btn btn-primary w-100">Apply</button>
+                            </div>
+                        </form>
+                        <div class="catalog-meta">
+                            <span>
+                                {% if filters.has_active %}
+                                    {{ filters.result_count }} result{% if filters.result_count != 1 %}s{% endif %} match your filters.
+                                {% else %}
+                                    Showing the latest catalogue entries.
+                                {% endif %}
+                            </span>
+                            {% if filters.has_active %}
+                                <a href="{{ url_for('products') }}" class="btn btn-link filter-clear px-0">Clear filters</a>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {% if products %}
@@ -70,11 +116,16 @@
                         <div class="row justify-content-center">
                             <div class="col-lg-8">
                                 <div class="empty-state">
-                                    <strong>Products coming soon.</strong>
-                                    Add components through the admin console and they will appear here instantly.
-                                    <div class="mt-3 text-muted">
-                                        Admin portal: <code>python admin_app.py</code> → http://localhost:5001
-                                    </div>
+                                    {% if filters.has_active %}
+                                        <strong>No products match those filters.</strong>
+                                        Adjust the search terms or stock filters to widen the results.
+                                    {% else %}
+                                        <strong>Products coming soon.</strong>
+                                        Add components through the admin console and they will appear here instantly.
+                                        <div class="mt-3 text-muted">
+                                            Admin portal: <code>python admin_app.py</code> → http://localhost:5001
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

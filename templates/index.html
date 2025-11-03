@@ -58,13 +58,25 @@
                             <strong>18 hrs</strong>
                         </div>
                     </div>
+                    <div class="hero-quick mt-4">
+                        <h2 class="hero-subheading">Shop by focus</h2>
+                        <ul class="hero-tags">
+                            <li><a href="{{ url_for('products', search='motherboard') }}">Workstation cores</a></li>
+                            <li><a href="{{ url_for('products', search='cable') }}">Signal & cabling</a></li>
+                            <li><a href="{{ url_for('products', search='tool') }}">Bench tooling</a></li>
+                            <li><a href="{{ url_for('products', stock='low') }}">Low stock alerts</a></li>
+                        </ul>
+                        <div class="text-muted small">
+                            Latest addition: GridWave Wi-Fi 7 Router with 10G WAN and mesh-ready firmware.
+                        </div>
+                    </div>
                 </article>
 
                 <aside class="showcase-column">
                     <div class="content-card highlight-card">
-                        <h5 class="text-uppercase text-muted mb-3">Build recipes</h5>
+                        <h5 class="text-uppercase text-muted mb-3">Lab notebook</h5>
                         <p class="mb-4 text-muted">
-                            Quick-start component stacks straight from our lab racks. Tested in thermal chambers, stress rigs, and real workstation builds so you can prototype faster.
+                            Quick pairings from this week’s validation runs. Each stack ships with wiring diagrams and BOM references so you can go from cart to rig without rewrites.
                         </p>
                         <ul class="coach-card-list mb-4">
                             <li>

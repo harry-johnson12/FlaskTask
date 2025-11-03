@@ -82,8 +82,41 @@ def about() -> str:
 @app.route("/products")
 def products() -> str:
     """Product catalogue with live inventory data."""
-    products = fetch_products()
-    return render_template("products.html", products=products)
+    search = (request.args.get("search") or "").strip()
+    stock_raw = (request.args.get("stock") or "all").lower()
+    sort_raw = (request.args.get("sort") or "newest").lower()
+
+    allowed_stock = {"all", "in", "low", "out"}
+    stock = stock_raw if stock_raw in allowed_stock else "all"
+
+    allowed_sort = {
+        "newest",
+        "oldest",
+        "price_low",
+        "price_high",
+        "inventory_low",
+        "inventory_high",
+        "name_az",
+        "name_za",
+    }
+    sort = sort_raw if sort_raw in allowed_sort else "newest"
+
+    fetch_kwargs: dict[str, object] = {"sort": sort}
+    if search:
+        fetch_kwargs["search"] = search
+    if stock != "all":
+        fetch_kwargs["stock_filter"] = stock
+
+    catalogue = fetch_products(**fetch_kwargs)
+    filters = {
+        "search": search,
+        "stock": stock,
+        "sort": sort,
+        "has_active": bool(search or stock != "all" or sort != "newest"),
+        "result_count": len(catalogue),
+    }
+
+    return render_template("products.html", products=catalogue, filters=filters)
 
 @app.route("/products/<int:product_id>", methods=["GET", "POST"])
 def product_detail(product_id: int) -> Union[str, Response]:
