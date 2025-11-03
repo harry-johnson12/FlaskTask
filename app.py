@@ -1,4 +1,4 @@
-"""Public-facing Flask application for the Chafe Escape storefront."""
+"""Public-facing Flask application for the Circuit Foundry storefront."""
 
 from __future__ import annotations
 

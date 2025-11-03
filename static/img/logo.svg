@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+    <defs>
+        <linearGradient id="cf-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#5cf0ff"/>
+            <stop offset="100%" stop-color="#34d6ff"/>
+        </linearGradient>
+        <linearGradient id="cf-base" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#04111c"/>
+            <stop offset="100%" stop-color="#0d2136"/>
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#cf-base)" stroke="rgba(92,240,255,0.35)" stroke-width="2"/>
+    <path d="M16 18h10a5 5 0 0 1 0 10h-7" fill="none" stroke="url(#cf-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="16" cy="18" r="2.4" fill="#5cf0ff"/>
+    <circle cx="19" cy="28" r="2.2" fill="#34d6ff"/>
+    <path d="M26 22h6" stroke="url(#cf-accent)" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M30 22v10" stroke="url(#cf-accent)" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="30" cy="34" r="2.6" fill="#48dfff"/>
+</svg>

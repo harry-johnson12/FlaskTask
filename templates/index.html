@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home - Chafe Escape</title>
+    <title>Home - Circuit Foundry</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Chafe Escape logo">
-                <span>Chafe Escape</span>
+                <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Circuit Foundry logo">
+                <span>Circuit Foundry</span>
             </a>
             <div class="navbar-nav ms-auto align-items-center gap-2">
                 <a class="nav-link active" href="{{ url_for('index') }}">Home</a>
@@ -34,58 +34,58 @@
             <section class="landing-grid">
                 <article class="hero-card hero-card-home text-center text-lg-start">
                     <div class="mb-4">
-                        <div class="badge-soft mb-3">Human-first Performance Care</div>
-                        <h1 class="page-title">Stay in flow, not in friction.</h1>
+                        <div class="badge-soft mb-3">Precision components & tools</div>
+                        <h1 class="page-title">Hardware for builders and dreamers.</h1>
                         <p class="page-subtitle">
-                            Chafe Escape delivers minimalist, high-performance care so runners can stay focused on their miles, not their discomfort.
+                            Circuit Foundry curates mission-critical electronics — from micro jumpers to flagship motherboards — vetted by engineers who live on the workbench.
                         </p>
                     </div>
                     <div class="d-flex flex-column flex-sm-row gap-3 hero-actions">
-                        <a href="{{ url_for('products') }}" class="btn btn-primary">Explore the collection</a>
-                        <a href="{{ url_for('about') }}" class="btn btn-ghost">Meet the team</a>
+                        <a href="{{ url_for('products') }}" class="btn btn-primary">Explore the catalogue</a>
+                        <a href="{{ url_for('about') }}" class="btn btn-ghost">See how we source</a>
                     </div>
                     <div class="hero-insights mt-4">
                         <div class="mini-stat">
-                            <span class="mini-stat-label">Community miles logged</span>
-                            <strong>2.3M+</strong>
+                            <span class="mini-stat-label">SKUs live</span>
+                            <strong>480+</strong>
                         </div>
                         <div class="mini-stat">
-                            <span class="mini-stat-label">Derm-approved blends</span>
-                            <strong>8 actives</strong>
+                            <span class="mini-stat-label">Compatibility checks</span>
+                            <strong>27k/yr</strong>
                         </div>
                         <div class="mini-stat">
-                            <span class="mini-stat-label">Weekly orders packed</span>
-                            <strong>4,800</strong>
+                            <span class="mini-stat-label">Avg. dispatch time</span>
+                            <strong>18 hrs</strong>
                         </div>
                     </div>
                 </article>
 
                 <aside class="showcase-column">
                     <div class="content-card highlight-card">
-                        <h5 class="text-uppercase text-muted mb-3">Coach's corner</h5>
+                        <h5 class="text-uppercase text-muted mb-3">Build recipes</h5>
                         <p class="mb-4 text-muted">
-                            Build your race-week ritual with go-to pairings from the lab crew. These stacks were tested in humid double-session weeks so you can train without friction.
+                            Quick-start component stacks straight from our lab racks. Tested in thermal chambers, stress rigs, and real workstation builds so you can prototype faster.
                         </p>
                         <ul class="coach-card-list mb-4">
                             <li>
                                 <span class="coach-icon">1</span>
                                 <div>
-                                    <strong>Tempo Prep</strong>
-                                    <p class="text-muted mb-0">Glide Serum + Stride Guard Powder keeps hips and thighs smooth when sweat rate climbs.</p>
+                                    <strong>Creator Node</strong>
+                                    <p class="text-muted mb-0">VectorForge X790 + QuantumBlade 2TB SSD keeps render nodes snappy under GPU-accelerated workloads.</p>
                                 </div>
                             </li>
                             <li>
                                 <span class="coach-icon">2</span>
                                 <div>
-                                    <strong>Trail Reset</strong>
-                                    <p class="text-muted mb-0">Trail Reset Mist layers perfectly after a long climb—follow with Recalibrate Balm for ankle touch-ups.</p>
+                                    <strong>Bench Essentials</strong>
+                                    <p class="text-muted mb-0">MatrixLab Drivers + NanoMesh Dupont set streamline quick board diagnostics and pin mapping.</p>
                                 </div>
                             </li>
                             <li>
                                 <span class="coach-icon">3</span>
                                 <div>
-                                    <strong>Race Night</strong>
-                                    <p class="text-muted mb-0">Ultra Repair Duo sets up overnight recovery so you wake up fresh for the starting corrals.</p>
+                                    <strong>Luminous Build</strong>
+                                    <p class="text-muted mb-0">LumenStrip LED kit + TitanEdge GPU brace for glass chassis builds that still meet airflow targets.</p>
                                 </div>
                             </li>
                         </ul>
@@ -93,7 +93,7 @@
                             <span class="avatar-dot"></span>
                             <span class="avatar-dot"></span>
                             <span class="avatar-dot"></span>
-                            <span class="text-muted">Trusted by pace crews nationwide</span>
+                            <span class="text-muted">Trusted by labs & makerspaces worldwide</span>
                         </div>
                     </div>
 
@@ -102,8 +102,9 @@
                             {% for product in featured_products %}
                                 <div class="product-card featured-card">
                                     {% if product['image_path'] %}
+                                        {% set image_src = product['image_path'] %}
                                         <div class="product-card-media mb-3">
-                                            <img src="{{ url_for('static', filename=product['image_path']) }}" alt="{{ product['name'] }} product image">
+                                            <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} product image">
                                         </div>
                                     {% endif %}
                                     <div class="product-meta mb-2">
@@ -123,8 +124,8 @@
                         </div>
                     {% else %}
                         <div class="empty-state">
-                            <strong>Inventory loading</strong>
-                            Hop into the admin app to add products and they will appear here automatically.
+                            <strong>Inventory loading.</strong>
+                            Add products in the admin console and featured modules will populate automatically.
                         </div>
                     {% endif %}
                 </aside>
@@ -132,16 +133,16 @@
 
             <section class="experience-band">
                 <div class="experience-card content-card">
-                    <h4 class="h5 mb-2">Zero-friction labs</h4>
-                    <p class="text-muted mb-0">Monthly wear-tests with ultrarunners keep our base formulas dialled for real race conditions.</p>
+                    <h4 class="h5 mb-2">Bench validated</h4>
+                    <p class="text-muted mb-0">Every component is stress-tested for thermals, signal integrity, and cross-compatibility before it ships.</p>
                 </div>
                 <div class="experience-card content-card">
-                    <h4 class="h5 mb-2">Community shakeouts</h4>
-                    <p class="text-muted mb-0">Pop-up group runs every Saturday in six cities with recovery lounges and product swaps.</p>
+                    <h4 class="h5 mb-2">Open documentation</h4>
+                    <p class="text-muted mb-0">Pin-outs, recommended firmware, and BOM templates so you can drop products straight into your pipeline.</p>
                 </div>
                 <div class="experience-card content-card">
-                    <h4 class="h5 mb-2">Support on demand</h4>
-                    <p class="text-muted mb-0">Chat with coaches and dermatologists in-app for pre-race prep or to troubleshoot hot spots.</p>
+                    <h4 class="h5 mb-2">Rapid fulfillment</h4>
+                    <p class="text-muted mb-0">Robotic pick-and-pack keeps lead time low whether you need one sensor or a full production batch.</p>
                 </div>
             </section>
         </div>
@@ -149,7 +150,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="footer-text">&copy; 2024 Chafe Escape. Built for learning Flask.</p>
+            <p class="footer-text">&copy; 2024 Circuit Foundry. Components for curious minds.</p>
         </div>
     </footer>
 
