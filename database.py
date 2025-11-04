@@ -6,7 +6,7 @@ The goal is to keep the schema easy to read while covering core store tables.
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, Optional
+from typing import Dict, Iterable, Iterator, Mapping, Optional
 
 # Store the database alongside the app for easy access.
 DB_PATH = Path(__file__).with_name("store.db")
@@ -75,6 +75,22 @@ def init_db() -> None:
                 quantity INTEGER NOT NULL DEFAULT 1,
                 unit_price REAL NOT NULL,
                 FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS user_cart_items (
+                user_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (user_id, product_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
             );
             """
@@ -189,79 +205,123 @@ def fetch_products_by_ids(product_ids: Iterable[int]) -> list[Mapping[str, objec
     return [lookup[pid] for pid in ordered_ids if pid in lookup]
 
 
-def insert_customer(first_name: str, last_name: str, email: str) -> int:
-    """Create a customer and hand back the new id."""
+def create_user(username: str, password_hash: str) -> int:
+    """Insert a new application user and return the id."""
     with get_connection() as conn:
         return _insert_and_return_id(
             conn,
             """
-            INSERT INTO customers (first_name, last_name, email)
-            VALUES (?, ?, ?)
-            """,
-            (first_name, last_name, email),
-        )
-
-
-def insert_order(customer_id: int, status: str = "pending") -> int:
-    """Start an order for a customer."""
-    with get_connection() as conn:
-        return _insert_and_return_id(
-            conn,
-            """
-            INSERT INTO orders (customer_id, status)
+            INSERT INTO users (username, password_hash)
             VALUES (?, ?)
             """,
-            (customer_id, status),
+            (username, password_hash),
         )
 
 
-def add_order_item(order_id: int, product_id: int, quantity: int, unit_price: float) -> None:
-    """Attach a product to an order and maintain the order total."""
+def get_user_by_username(username: str) -> Optional[Mapping[str, object]]:
+    """Fetch a user record given a username."""
     with get_connection() as conn:
-        conn.execute(
+        row = conn.execute(
             """
-            INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-            VALUES (?, ?, ?, ?)
+            SELECT id, username, password_hash, created_at
+            FROM users
+            WHERE username = ?
             """,
-            (order_id, product_id, quantity, unit_price),
-        )
-        conn.execute(
+            (username,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> Optional[Mapping[str, object]]:
+    """Fetch a user record by primary key."""
+    with get_connection() as conn:
+        row = conn.execute(
             """
-            UPDATE orders
-            SET total = (
-                SELECT COALESCE(SUM(quantity * unit_price), 0)
-                FROM order_items
-                WHERE order_id = ?
-            )
+            SELECT id, username, password_hash, created_at
+            FROM users
             WHERE id = ?
             """,
-            (order_id, order_id),
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def fetch_user_cart(user_id: int) -> Dict[int, int]:
+    """Return the persisted cart quantities for the given user."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT product_id, quantity
+            FROM user_cart_items
+            WHERE user_id = ?
+            """,
+            (user_id,),
         )
+        cart: Dict[int, int] = {}
+        for row in rows:
+            try:
+                pid = int(row["product_id"])
+                qty = int(row["quantity"])
+            except (TypeError, ValueError):
+                continue
+            if qty > 0:
+                cart[pid] = qty
+    return cart
+
+
+def replace_user_cart(user_id: int, cart: Mapping[int, int]) -> None:
+    """Replace the persisted cart for a user with the provided mapping."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM user_cart_items WHERE user_id = ?", (user_id,))
+        for product_id, quantity in cart.items():
+            try:
+                pid = int(product_id)
+                qty = int(quantity)
+            except (TypeError, ValueError):
+                continue
+            if qty <= 0:
+                continue
+            conn.execute(
+                """
+                INSERT INTO user_cart_items (user_id, product_id, quantity)
+                VALUES (?, ?, ?)
+                """,
+                (user_id, pid, qty),
+            )
+
+
+def remove_user_cart_item(user_id: int, product_id: int) -> None:
+    """Remove a single product from a user's persisted cart."""
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM user_cart_items WHERE user_id = ? AND product_id = ?",
+            (user_id, product_id),
+        )
+
+
+def clear_user_cart(user_id: int) -> None:
+    """Delete all persisted cart items for the user."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM user_cart_items WHERE user_id = ?", (user_id,))
+
+
+def fetch_users() -> Iterable[Mapping[str, object]]:
+    """Return all application users ordered by newest first."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, username, created_at
+            FROM users
+            ORDER BY id DESC
+            """
+        )
+        return [dict(row) for row in rows]
 
 
 def delete_product(product_id: int) -> None:
     """Remove a product and any orphaned order items."""
     with get_connection() as conn:
         conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
-
-
-def fetch_customers() -> Iterable[Mapping[str, object]]:
-    """Return customers ordered by newest first."""
-    with get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, first_name, last_name, email, created_at
-            FROM customers
-            ORDER BY id DESC
-            """
-        )
-        return list(rows)
-
-
-def delete_customer(customer_id: int) -> None:
-    """Remove a customer which cascades to their orders."""
-    with get_connection() as conn:
-        conn.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
 
 
 def seed_data() -> None:

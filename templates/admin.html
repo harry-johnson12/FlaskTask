@@ -73,31 +73,6 @@
                         </form>
                     </div>
 
-                    <div class="admin-card">
-                        <h2 class="h4 mb-3">Invite a customer</h2>
-                        <p class="text-muted">Add shoppers here to let them receive login details and follow-up campaigns.</p>
-
-                        <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" novalidate class="admin-form">
-                            <input type="hidden" name="action" value="create_customer">
-                            <div class="row">
-                                <div class="col-sm-6 mb-3">
-                                    <label for="first_name" class="form-label">First name</label>
-                                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ customer_form.first_name }}" required>
-                                </div>
-                                <div class="col-sm-6 mb-3">
-                                    <label for="last_name" class="form-label">Last name</label>
-                                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ customer_form.last_name }}" required>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" value="{{ customer_form.email }}" required>
-                            </div>
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Add customer</button>
-                            </div>
-                        </form>
-                    </div>
                 </div>
 
                 <div class="col-lg-7">
@@ -244,37 +219,23 @@
 
                     <div class="admin-card mt-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h4 mb-0">Customer directory</h2>
-                            <span class="pill">Auth ready</span>
+                            <h2 class="h4 mb-0">Account directory</h2>
+                            <span class="pill">{{ users|length }} active</span>
                         </div>
-                        {% if customers %}
+                        {% if users %}
                             <div class="admin-table table-responsive">
                                 <table class="table align-middle mb-0">
                                     <thead>
                                         <tr>
-                                            <th scope="col">Name</th>
-                                            <th scope="col">Email</th>
-                                            <th scope="col">Joined</th>
-                                            <th scope="col" class="text-end">Actions</th>
+                                            <th scope="col">Username</th>
+                                            <th scope="col" class="text-muted">Joined</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% for customer in customers %}
+                                        {% for user in users %}
                                             <tr>
-                                                <td>
-                                                    <div class="fw-semibold">
-                                                        {{ customer['first_name'] }} {{ customer['last_name'] }}
-                                                    </div>
-                                                </td>
-                                                <td class="text-muted">{{ customer['email'] }}</td>
-                                                <td class="text-muted">{{ customer['created_at'] }}</td>
-                                                <td class="text-end">
-                                                    <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" class="d-inline">
-                                                        <input type="hidden" name="action" value="delete_customer">
-                                                        <input type="hidden" name="customer_id" value="{{ customer['id'] }}">
-                                                        <button type="submit" class="btn btn-link text-danger p-0">Remove</button>
-                                                    </form>
-                                                </td>
+                                                <td class="fw-semibold">{{ user['username'] }}</td>
+                                                <td class="text-muted">{{ user['created_at'] }}</td>
                                             </tr>
                                         {% endfor %}
                                     </tbody>
@@ -282,8 +243,8 @@
                             </div>
                         {% else %}
                             <div class="empty-state">
-                                <strong>No customers yet</strong>
-                                Add profiles to begin tracking customer logins and orders.
+                                <strong>No user accounts yet</strong>
+                                Accounts created through the storefront will appear here instantly.
                             </div>
                         {% endif %}
                     </div>

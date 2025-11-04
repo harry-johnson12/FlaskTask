@@ -11,13 +11,11 @@ from flask import Flask, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
 from database import (
-    delete_customer,
     delete_product,
-    fetch_customers,
     fetch_products,
+    fetch_users,
     get_product,
     init_db,
-    insert_customer,
     insert_product,
     update_product,
 )
@@ -53,14 +51,6 @@ def _empty_product_form() -> dict[str, str]:
         "price": "",
         "sku": "",
         "inventory_count": "",
-    }
-
-
-def _empty_customer_form() -> dict[str, str]:
-    return {
-        "first_name": "",
-        "last_name": "",
-        "email": "",
     }
 
 
@@ -167,13 +157,12 @@ def _redirect_with_success(code: str, filters: ProductFilterState):
 
 @admin_app.route("/", methods=["GET", "POST"])
 def dashboard():
-    """Lightweight admin panel to manage products and customers."""
+    """Lightweight admin panel to manage the storefront catalogue and accounts."""
     message = None
     error = None
 
     filters = _parse_product_filters()
     product_form = _empty_product_form()
-    customer_form = _empty_customer_form()
 
     if request.method == "POST":
         action = _form_text("action")
@@ -282,32 +271,6 @@ def dashboard():
                     delete_product(product_id)
                     return _redirect_with_success("product_deleted", filters)
 
-        elif action == "create_customer":
-            customer_form = {
-                "first_name": _form_text("first_name"),
-                "last_name": _form_text("last_name"),
-                "email": _form_text("email"),
-            }
-
-            if not all(customer_form.values()):
-                error = "First name, last name, and email are required."
-            else:
-                insert_customer(
-                    customer_form["first_name"],
-                    customer_form["last_name"],
-                    customer_form["email"],
-                )
-                return _redirect_with_success("customer_created", filters)
-
-        elif action == "delete_customer":
-            try:
-                customer_id = int(request.form.get("customer_id", ""))
-            except ValueError:
-                error = "Could not resolve the customer to delete."
-            else:
-                delete_customer(customer_id)
-                return _redirect_with_success("customer_deleted", filters)
-
         else:
             error = "Unknown admin action requested."
 
@@ -315,8 +278,6 @@ def dashboard():
         "product_created": "Product saved.",
         "product_updated": "Product updated.",
         "product_deleted": "Product removed.",
-        "customer_created": "Customer added.",
-        "customer_deleted": "Customer removed.",
     }
     success_code = request.args.get("success")
     if success_code and success_code in success_messages:
@@ -324,16 +285,15 @@ def dashboard():
 
     products = list(fetch_products(**filters.fetch_kwargs))
     product_count = len(products)
-    customers = fetch_customers()
+    users = list(fetch_users())
 
     return render_template(
         "admin.html",
         message=message,
         error=error,
         product_form=product_form,
-        customer_form=customer_form,
         products=products,
-        customers=customers,
+        users=users,
         product_filters=filters,
         product_count=product_count,
     )

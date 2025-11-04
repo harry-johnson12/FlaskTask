@@ -25,6 +25,13 @@
                         <span class="cart-count">{{ cart_item_count }}</span>
                     {% endif %}
                 </a>
+                {% if current_user %}
+                    <span class="user-pill">{{ current_user['username'] }}</span>
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                    <a class="nav-link" href="{{ url_for('signup') }}">Sign up</a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -32,7 +39,7 @@
     <div class="page-shell">
         <div class="container">
             <section class="landing-grid">
-                <article class="hero-card hero-card-home text-center text-lg-start">
+                <article class="landing-left hero-card hero-card-home text-center text-lg-start">
                     <div class="mb-4">
                         <div class="badge-soft mb-3">Flux Foundry Supply</div>
                         <h1 class="page-title">Hardware for builders and dreamers.</h1>
@@ -44,39 +51,72 @@
                         <a href="{{ url_for('products') }}" class="btn btn-primary">Explore the catalogue</a>
                         <a href="{{ url_for('about') }}" class="btn btn-ghost">See how we source</a>
                     </div>
-                    <div class="hero-meta-grid mt-4">
-                        <div class="hero-insights">
-                            <div class="mini-stat">
-                                <span class="mini-stat-label">SKUs live</span>
-                                <strong>480+</strong>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="mini-stat-label">Compatibility checks</span>
-                                <strong>27k/yr</strong>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="mini-stat-label">Avg. dispatch time</span>
-                                <strong>18 hrs</strong>
-                            </div>
+                    <div class="hero-metrics mt-4">
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">SKUs live</span>
+                            <strong>480+</strong>
                         </div>
-                        <div class="hero-quick">
-                            <h2 class="hero-subheading">Shop by focus</h2>
-                            <ul class="hero-tags">
-                                <li><a href="{{ url_for('products', search='motherboard') }}">Workstation cores</a></li>
-                                <li><a href="{{ url_for('products', search='cable') }}">Signal & cabling</a></li>
-                                <li><a href="{{ url_for('products', search='tool') }}">Bench tooling</a></li>
-                                <li><a href="{{ url_for('products', stock='low') }}">Low stock alerts</a></li>
-                            </ul>
-                            <div class="hero-snapshot">
-                                <strong>Lab dispatch:</strong>
-                                <span>GridWave Wi‑Fi 7 Router cleared thermal soak and is now in ready stock.</span>
-                            </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Compatibility checks</span>
+                            <strong>27k/yr</strong>
                         </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Avg. dispatch time</span>
+                            <strong>18 hrs</strong>
+                        </div>
+                    </div>
+
+                    <div class="content-card home-focus">
+                        <h5 class="text-uppercase text-muted mb-3">Shop by focus</h5>
+                        <ul class="hero-tags mb-3">
+                            <li><a href="{{ url_for('products', search='motherboard') }}">Workstation cores</a></li>
+                            <li><a href="{{ url_for('products', search='cable') }}">Signal & cabling</a></li>
+                            <li><a href="{{ url_for('products', search='tool') }}">Bench tooling</a></li>
+                            <li><a href="{{ url_for('products', stock='low') }}">Low stock alerts</a></li>
+                        </ul>
+                        <div class="hero-snapshot mb-0">
+                            <strong>Lab dispatch:</strong>
+                            <span>GridWave Wi‑Fi 7 Router cleared thermal soak and is now in ready stock.</span>
+                        </div>
+                    </div>
+
+                    <div class="landing-left-products">
+                        {% if left_products %}
+                            {% for product in left_products %}
+                                <div class="product-card featured-card">
+                                    {% if product['image_path'] %}
+                                        {% set image_src = product['image_path'] %}
+                                        <div class="product-card-media mb-3">
+                                            <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} product image">
+                                        </div>
+                                    {% endif %}
+                                    <div class="product-meta mb-2">
+                                        {% if product['sku'] %}
+                                            <span class="pill">SKU {{ product['sku'] }}</span>
+                                        {% endif %}
+                                        <span class="pill">Stock {{ product['inventory_count'] }}</span>
+                                    </div>
+                                    <h3 class="h5 mb-2">{{ product['name'] }}</h3>
+                                    <p class="text-muted">{{ product['description'] }}</p>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <span class="fw-semibold">${{ "%.2f"|format(product['price']) }}</span>
+                                        <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="btn btn-ghost btn-sm">View</a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="content-card home-featured-empty">
+                                <div class="empty-state mb-0">
+                                    <strong>Inventory loading.</strong>
+                                    Add products in the admin console and featured modules will populate automatically.
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                 </article>
 
-                <aside class="showcase-column">
-                    <div class="content-card highlight-card">
+                <div class="landing-right">
+                    <div class="content-card highlight-card home-highlight">
                         <h5 class="text-uppercase text-muted mb-3">Lab notebook</h5>
                         <p class="mb-4 text-muted">
                             Quick pairings from this week’s validation runs. Each stack ships with wiring diagrams and BOM references so you can go from cart to rig without rewrites.
@@ -112,10 +152,37 @@
                         </div>
                     </div>
 
-                    {% if featured_products %}
-                        <div class="featured-grid">
-                            {% for product in featured_products %}
-                                <div class="product-card featured-card">
+                    <div class="content-card home-updates">
+                        <h5 class="text-uppercase text-muted mb-3">Quick stats</h5>
+                        <ul class="home-updates-list">
+                            <li>
+                                <div>
+                                    <strong>Lead time</strong>
+                                    <span class="text-muted small d-block">Orders processing in under 20 hrs</span>
+                                </div>
+                                <span class="pill">Logistics</span>
+                            </li>
+                            <li>
+                                <div>
+                                    <strong>Returns</strong>
+                                    <span class="text-muted small d-block">0.6% devices flagged last quarter</span>
+                                </div>
+                                <span class="pill">QA</span>
+                            </li>
+                            <li>
+                                <div>
+                                    <strong>Community</strong>
+                                    <span class="text-muted small d-block">3.2k engineers in monthly sync</span>
+                                </div>
+                                <span class="pill">Support</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="landing-right-products">
+                        {% if right_products %}
+                            {% for product in right_products %}
+                                <div class="product-card featured-card home-featured-card">
                                     {% if product['image_path'] %}
                                         {% set image_src = product['image_path'] %}
                                         <div class="product-card-media mb-3">
@@ -136,14 +203,16 @@
                                     </div>
                                 </div>
                             {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="empty-state">
-                            <strong>Inventory loading.</strong>
-                            Add products in the admin console and featured modules will populate automatically.
-                        </div>
-                    {% endif %}
-                </aside>
+                        {% else %}
+                            <div class="content-card home-featured-empty">
+                                <div class="empty-state mb-0">
+                                    <strong>Inventory loading.</strong>
+                                    Add products in the admin console and featured modules will populate automatically.
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
             </section>
 
             <section class="experience-band">
