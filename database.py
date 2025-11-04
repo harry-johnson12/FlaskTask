@@ -59,25 +59,6 @@ def init_db() -> None:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                customer_id INTEGER NOT NULL,
-                order_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                status TEXT NOT NULL DEFAULT 'pending',
-                total REAL NOT NULL DEFAULT 0,
-                FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS order_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
-                quantity INTEGER NOT NULL DEFAULT 1,
-                unit_price REAL NOT NULL,
-                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-            );
-
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
