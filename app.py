@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 import re
-from typing import Dict, List, Union
+from typing import Dict, List, Mapping, Union
 
 from flask import (
     Flask,
@@ -40,15 +40,32 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "dev-secret-key-change-me"
 
 
-def _current_user_id() -> int | None:
-    """Return the authenticated user id if present."""
+def _current_user() -> Mapping[str, object] | None:
+    """Return the authenticated user dict, clearing stale sessions if needed."""
     user_id = session.get("user_id")
     if user_id is None:
         return None
     try:
-        return int(user_id)
+        user_id_int = int(user_id)
     except (TypeError, ValueError):
+        session.pop("user_id", None)
+        session.pop("username", None)
         return None
+
+    user = get_user_by_id(user_id_int)
+    if not user:
+        session.pop("user_id", None)
+        session.pop("username", None)
+        return None
+    return user
+
+
+def _current_user_id() -> int | None:
+    """Return the authenticated user id if present."""
+    user = _current_user()
+    if not user:
+        return None
+    return int(user["id"])
 
 
 def _get_cart() -> Dict[int, int]:
@@ -78,8 +95,7 @@ def inject_cart_meta() -> Dict[str, object]:
     cart = _get_cart()
     total_items = sum(cart.values())
 
-    user_id = _current_user_id()
-    current_user = get_user_by_id(user_id) if user_id else None
+    current_user = _current_user()
 
     return {"cart_item_count": total_items, "current_user": current_user}
 
