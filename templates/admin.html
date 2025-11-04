@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Circuit Foundry</title>
+    <title>Admin - Flux Foundry</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
@@ -12,8 +12,8 @@
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Circuit Foundry logo">
-                <span>Circuit Foundry Admin</span>
+                <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Flux Foundry logo">
+                <span>Flux Foundry Admin</span>
             </a>
             <div class="navbar-nav ms-auto">
                 <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -104,11 +104,11 @@
                     <div class="admin-card product-filter-card mb-4">
                         <form method="get" class="admin-form filter-form">
                             <div class="row g-3 align-items-end">
-                                <div class="col-md-6 col-xl-5">
+                                <div class="col-12 col-lg-5">
                                     <label for="catalog-search" class="form-label">Search catalogue</label>
                                     <input type="search" class="form-control" id="catalog-search" name="search" value="{{ product_filters.search }}" placeholder="Name, SKU, description">
                                 </div>
-                                <div class="col-md-3 col-xl-3">
+                                <div class="col-12 col-sm-6 col-lg-3">
                                     <label for="stock-filter" class="form-label">Stock</label>
                                     <select class="form-select" id="stock-filter" name="stock">
                                         <option value="all" {% if product_filters.stock == 'all' %}selected{% endif %}>All stock</option>
@@ -117,7 +117,7 @@
                                         <option value="out" {% if product_filters.stock == 'out' %}selected{% endif %}>Out of stock</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3 col-xl-3">
+                                <div class="col-12 col-sm-6 col-lg-3">
                                     <label for="sort-filter" class="form-label">Sort by</label>
                                     <select class="form-select" id="sort-filter" name="sort">
                                         <option value="newest" {% if product_filters.sort == 'newest' %}selected{% endif %}>Newest</option>
@@ -130,8 +130,8 @@
                                         <option value="inventory_high" {% if product_filters.sort == 'inventory_high' %}selected{% endif %}>Inventory high → low</option>
                                     </select>
                                 </div>
-                                <div class="col-md-12 col-xl-1">
-                                    <button type="submit" class="btn btn-primary w-100">Apply</button>
+                                <div class="col-12 col-sm-4 col-lg-1">
+                                    <button type="submit" class="btn btn-primary filter-apply-btn">Apply</button>
                                 </div>
                             </div>
                             <div class="filter-form-actions d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
@@ -294,7 +294,7 @@
 
     <footer class="footer">
         <div class="container text-center">
-            <p class="footer-text mb-0">&copy; 2024 Circuit Foundry Admin.</p>
+            <p class="footer-text mb-0">&copy; 2024 Flux Foundry Admin.</p>
         </div>
     </footer>
 
