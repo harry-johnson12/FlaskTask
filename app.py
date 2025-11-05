@@ -1,4 +1,4 @@
-"""Public-facing Flask application for the Flux Foundry storefront."""
+"""Public-facing Flask application for the Gearloom storefront."""
 
 from __future__ import annotations
 
@@ -124,6 +124,24 @@ def index() -> str:
 def about() -> str:
     """Static page with brand context."""
     return render_template("about.html")
+
+
+@app.route("/help")
+def help_center() -> str:
+    """Customer support landing page."""
+    return render_template("help.html")
+
+
+@app.route("/returns")
+def returns_policy() -> str:
+    """Return and exchange policy."""
+    return render_template("returns.html")
+
+
+@app.route("/shipping")
+def shipping_info() -> str:
+    """Shipping and delivery details."""
+    return render_template("shipping.html")
 
 
 @app.route("/signup", methods=["GET", "POST"])

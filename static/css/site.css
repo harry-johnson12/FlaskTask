@@ -722,6 +722,27 @@ code {
     margin-top: clamp(2.8rem, 7vw, 4.8rem);
 }
 
+.footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.footer-links a {
+    color: var(--ink-muted);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.footer-links a:hover,
+.footer-links a:focus {
+    color: var(--ink-base);
+    text-decoration: underline;
+}
+
 .footer-text {
     color: var(--ink-muted);
     font-size: 0.85rem;
