@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 import re
-from typing import Dict, List, Mapping, Union
+from typing import Dict, List, Mapping, Union, cast
 
 from flask import (
     Flask,
@@ -65,7 +65,8 @@ def _current_user_id() -> int | None:
     user = _current_user()
     if not user:
         return None
-    return int(user["id"])
+    # user["id"] is typed as object; cast it to int for the type checker
+    return int(cast(int, user["id"]))
 
 
 def _get_cart() -> Dict[int, int]:
@@ -105,7 +106,7 @@ def index() -> str:
     """Landing page with a snapshot of highlighted products."""
     products = list(fetch_products())
     sample_count = min(4, len(products))
-    featured_products: List[dict] = random.sample(products, sample_count) if sample_count else []
+    featured_products: List[Mapping[str, object]] = random.sample(products, sample_count) if sample_count else []
 
     left_count = math.ceil(sample_count / 2) if sample_count else 0
     left_products = featured_products[:left_count]
@@ -185,18 +186,18 @@ def login() -> str | Response:
         next_url = request.args.get("next") or request.form.get("next")
 
         user = get_user_by_username(username) if username else None
-        if not user or not check_password_hash(user["password_hash"], password):
+        if not user or not check_password_hash(cast(str, user["password_hash"]), password):
             flash("Invalid username or password.", "danger")
             return render_template("login.html", username=username, next_url=next_url)
 
         guest_cart = _get_cart()
-        user_cart = fetch_user_cart(int(user["id"]))
+        user_cart = fetch_user_cart(int(cast(int, user["id"])))
 
         merged_cart: Dict[int, int] = dict(user_cart)
         for product_id, qty in guest_cart.items():
             merged_cart[product_id] = merged_cart.get(product_id, 0) + qty
 
-        session["user_id"] = int(user["id"])
+        session["user_id"] = int(cast(int, user["id"]))
         session["username"] = user["username"]
         _store_cart(merged_cart)
 
@@ -242,13 +243,13 @@ def products() -> str:
     }
     sort = sort_raw if sort_raw in allowed_sort else "newest"
 
-    fetch_kwargs: dict[str, object] = {"sort": sort}
+    fetch_kwargs: dict[str, str] = {"sort": sort}
     if search:
         fetch_kwargs["search"] = search
     if stock != "all":
         fetch_kwargs["stock_filter"] = stock
 
-    catalogue = fetch_products(**fetch_kwargs)
+    catalogue = list(fetch_products(**fetch_kwargs))
     filters = {
         "search": search,
         "stock": stock,
