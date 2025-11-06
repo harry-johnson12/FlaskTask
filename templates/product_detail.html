@@ -64,6 +64,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="product-detail-meta mt-4">
+                                    <span class="pill">{{ product['category'] }}</span>
                                     {% if product['sku'] %}
                                         <span class="pill">SKU {{ product['sku'] }}</span>
                                     {% endif %}
@@ -75,6 +76,13 @@
                                 <h1 class="page-title h2">{{ product['name'] }}</h1>
                                 <p class="lead text-muted">{{ product['description'] }}</p>
 
+                                <div class="rating-line mb-3">
+                                    {% with avg=rating_summary['avg_rating'], count=rating_summary['review_count'] %}
+                                        {% include 'shared/_rating_stars.html' with context %}
+                                        <span class="rating-count text-muted small">{% if count %}{{ count }} review{% if count != 1 %}s{% endif %}{% else %}No reviews yet{% endif %}</span>
+                                    {% endwith %}
+                                </div>
+
                                 <div class="product-detail-price my-4">
                                     <span class="display-6 fw-semibold">${{ "%.2f"|format(product['price']) }}</span>
                                     <span class="text-muted ms-3">Ships in under 24 hours</span>
@@ -82,6 +90,7 @@
 
                                 {% if current_user %}
                                     <form method="post" class="add-to-cart-form">
+                                        <input type="hidden" name="form_type" value="add_to_cart">
                                         <label for="quantity" class="form-label fw-semibold">Quantity</label>
                                         <div class="input-group input-group-lg add-to-cart-input">
                                             <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ product['inventory_count'] or '' }}" class="form-control" aria-label="Quantity">
@@ -124,6 +133,89 @@
                                     <a href="{{ url_for('cart') }}" class="btn btn-link">View cart ({{ cart_item_count }})</a>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row justify-content-center grid-tight mt-4" id="reviews">
+                <div class="col-xl-10">
+                    <div class="content-card">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                            <div>
+                                <h2 class="h4 mb-1">Product reviews</h2>
+                                <div class="rating-line">
+                                    {% with avg=rating_summary['avg_rating'], count=rating_summary['review_count'] %}
+                                        {% include 'shared/_rating_stars.html' with context %}
+                                        <span class="rating-count text-muted small">{% if count %}{{ count }} review{% if count != 1 %}s{% endif %}{% else %}No reviews yet{% endif %}</span>
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            {% if user_review %}
+                                <span class="badge-soft">Thanks for keeping your review current.</span>
+                            {% endif %}
+                        </div>
+
+                        {% if current_user %}
+                            <form method="post" class="review-form mb-4">
+                                <input type="hidden" name="form_type" value="review">
+                                <div class="row g-3">
+                                    <div class="col-sm-4 col-md-3">
+                                        <label for="review-rating" class="form-label">Rating</label>
+                                        <select class="form-select" id="review-rating" name="rating" required>
+                                            <option value="">Choose…</option>
+                                            {% for value, label in ((5, '5 - Exceptional'), (4, '4 - Strong'), (3, '3 - Solid'), (2, '2 - Needs work'), (1, '1 - Blocker')) %}
+                                                <option value="{{ value }}" {% if user_review and user_review['rating'] == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-8 col-md-9">
+                                        <label for="review-comment" class="form-label">Comment</label>
+                                        <textarea class="form-control" id="review-comment" name="comment" rows="3" placeholder="Share integration notes, performance callouts, or anything that would help another builder.">{{ user_review['comment'] if user_review and user_review['comment'] else '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-3">
+                                    <button type="submit" class="btn btn-primary">Submit review</button>
+                                    {% if user_review %}
+                                        <span class="text-muted small">Last updated {{ user_review['created_at'] }}</span>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        {% else %}
+                            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                                <span>Sign in to add your review and help the Gearloom assistant learn.</span>
+                                <a href="{{ url_for('login', next=request.path + '#reviews') }}" class="btn btn-primary btn-sm">Log in</a>
+                            </div>
+                        {% endif %}
+
+                        <div class="review-list">
+                            {% if reviews %}
+                                {% for review in reviews %}
+                                    <article class="review-item">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                            <div>
+                                                <strong>{{ review['username'] }}</strong>
+                                                <div class="rating-line mt-1">
+                                                    {% with avg=review['rating'], count=1 %}
+                                                        {% include 'shared/_rating_stars.html' with context %}
+                                                    {% endwith %}
+                                                </div>
+                                            </div>
+                                            <span class="text-muted small">{{ review['created_at'] }}</span>
+                                        </div>
+                                        {% if review['comment'] %}
+                                            <p class="text-muted mt-3 mb-0">{{ review['comment'] }}</p>
+                                        {% else %}
+                                            <p class="text-muted mt-3 mb-0 fst-italic">No comment left.</p>
+                                        {% endif %}
+                                    </article>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-state text-center">
+                                    <strong>Be the first to review this module.</strong>
+                                    <p class="text-muted mb-0">Your notes help the upcoming AI planner recommend the right stack faster.</p>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -91,10 +91,17 @@
                                         </div>
                                     {% endif %}
                                     <div class="product-meta mb-2">
+                                        <span class="pill">{{ product['category'] }}</span>
                                         {% if product['sku'] %}
                                             <span class="pill">SKU {{ product['sku'] }}</span>
                                         {% endif %}
                                         <span class="pill">Stock {{ product['inventory_count'] }}</span>
+                                    </div>
+                                    <div class="rating-line mb-2">
+                                        {% with avg=product['avg_rating'], count=product['review_count'] %}
+                                            {% include 'shared/_rating_stars.html' with context %}
+                                            <span class="rating-count text-muted small">{% if count %}({{ count }} review{% if count != 1 %}s{% endif %}){% else %}No reviews yet{% endif %}</span>
+                                        {% endwith %}
                                     </div>
                                     <h3 class="h5 mb-2">{{ product['name'] }}</h3>
                                     <p class="text-muted">{{ product['description'] }}</p>
@@ -190,10 +197,17 @@
                                         </div>
                                     {% endif %}
                                     <div class="product-meta mb-2">
+                                        <span class="pill">{{ product['category'] }}</span>
                                         {% if product['sku'] %}
                                             <span class="pill">SKU {{ product['sku'] }}</span>
                                         {% endif %}
                                         <span class="pill">Stock {{ product['inventory_count'] }}</span>
+                                    </div>
+                                    <div class="rating-line mb-2">
+                                        {% with avg=product['avg_rating'], count=product['review_count'] %}
+                                            {% include 'shared/_rating_stars.html' with context %}
+                                            <span class="rating-count text-muted small">{% if count %}({{ count }} review{% if count != 1 %}s{% endif %}){% else %}No reviews yet{% endif %}</span>
+                                        {% endwith %}
                                     </div>
                                     <h3 class="h5 mb-2">{{ product['name'] }}</h3>
                                     <p class="text-muted">{{ product['description'] }}</p>

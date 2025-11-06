@@ -23,14 +23,21 @@ from werkzeug.wrappers import Response
 
 from database import (
     create_user,
+    fetch_product_categories,
+    fetch_product_reviews,
     fetch_products,
     fetch_products_by_ids,
     fetch_user_cart,
     get_product,
+    get_product_rating_summary,
     get_user_by_id,
     get_user_by_username,
+    get_user_review,
     init_db,
     replace_user_cart,
+    upsert_product_review,
+    upsert_recent_product_view,
+    fetch_recent_products_for_user,
 )
 
 # Ensure the database and seed data exist before serving.
@@ -245,6 +252,7 @@ def products() -> str:
     search = (request.args.get("search") or "").strip()
     stock_raw = (request.args.get("stock") or "all").lower()
     sort_raw = (request.args.get("sort") or "newest").lower()
+    category_raw = (request.args.get("category") or "all").strip()
 
     allowed_stock = {"all", "in", "low", "out"}
     stock = stock_raw if stock_raw in allowed_stock else "all"
@@ -258,25 +266,53 @@ def products() -> str:
         "inventory_high",
         "name_az",
         "name_za",
+        "rating_high",
+        "rating_low",
     }
     sort = sort_raw if sort_raw in allowed_sort else "newest"
 
-    fetch_kwargs: dict[str, str] = {"sort": sort}
+    available_categories = fetch_product_categories()
+    normalized_categories = {cat.lower(): cat for cat in available_categories}
+    category_key = category_raw.lower()
+    if category_key in normalized_categories:
+        category = normalized_categories[category_key]
+    elif category_key == "all":
+        category = "all"
+    else:
+        category = "all"
+
+    fetch_kwargs: dict[str, object] = {"sort": sort}
     if search:
         fetch_kwargs["search"] = search
     if stock != "all":
         fetch_kwargs["stock_filter"] = stock
+    if category != "all":
+        fetch_kwargs["category"] = category
 
     catalogue = list(fetch_products(**fetch_kwargs))
+    user_id = _current_user_id()
+    recently_viewed = fetch_recent_products_for_user(user_id, limit=5) if user_id else []
     filters = {
         "search": search,
         "stock": stock,
         "sort": sort,
-        "has_active": bool(search or stock != "all" or sort != "newest"),
+        "category": category if category != "all" else "all",
+        "has_active": bool(
+            search or stock != "all" or sort != "newest" or category != "all"
+        ),
         "result_count": len(catalogue),
     }
 
-    return render_template("products.html", products=catalogue, filters=filters)
+    category_options = ["All"] + available_categories
+
+    return render_template(
+        "products.html",
+        products=catalogue,
+        filters=filters,
+        category_options=category_options,
+        selected_category=category,
+        recently_viewed=recently_viewed,
+    )
 
 @app.route("/products/<int:product_id>", methods=["GET", "POST"])
 def product_detail(product_id: int) -> Union[str, Response]:
@@ -284,13 +320,34 @@ def product_detail(product_id: int) -> Union[str, Response]:
     product = get_product(product_id)
     if not product:
         abort(404)
-        abort(404)
+
+    user_id = _current_user_id()
+    if user_id:
+        upsert_recent_product_view(user_id, product_id)
 
     if request.method == "POST":
-        if not _current_user_id():
+        form_type = request.form.get("form_type", "add_to_cart")
+        if form_type == "review":
+            if not user_id:
+                flash("Sign in to leave a review.", "warning")
+                return redirect(url_for("login", next=url_for("product_detail", product_id=product_id)))
+            rating_raw = request.form.get("rating", "")
+            comment = (request.form.get("comment") or "").strip()
+            try:
+                rating_value = int(rating_raw)
+            except (TypeError, ValueError):
+                flash("Select a rating between 1 and 5 stars.", "warning")
+                return redirect(url_for("product_detail", product_id=product_id) + "#reviews")
+            rating_value = max(1, min(5, rating_value))
+            upsert_product_review(product_id, user_id, rating_value, comment)
+            flash("Thanks for sharing your feedback!", "success")
+            return redirect(url_for("product_detail", product_id=product_id) + "#reviews")
+
+        if not user_id:
             flash("Sign in to add items to your cart.", "warning")
             login_target = url_for("login", next=url_for("product_detail", product_id=product_id))
             return redirect(login_target)
+
         quantity_raw = request.form.get("quantity", "1")
         try:
             quantity_value = max(1, int(quantity_raw))
@@ -304,7 +361,17 @@ def product_detail(product_id: int) -> Union[str, Response]:
         flash(f"Added {quantity_value} × {product['name']} to your cart.", "success")
         return redirect(url_for("cart"))
 
-    return render_template("product_detail.html", product=product)
+    rating_summary = get_product_rating_summary(product_id)
+    reviews = fetch_product_reviews(product_id)
+    user_review = get_user_review(product_id, user_id) if user_id else None
+
+    return render_template(
+        "product_detail.html",
+        product=product,
+        rating_summary=rating_summary,
+        reviews=reviews,
+        user_review=user_review,
+    )
 
 
 @app.route("/cart")

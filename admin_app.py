@@ -51,6 +51,7 @@ def _empty_product_form() -> dict[str, str]:
         "price": "",
         "sku": "",
         "inventory_count": "",
+        "category": "",
     }
 
 
@@ -174,6 +175,7 @@ def dashboard():
                 "price": _form_text("price"),
                 "sku": _form_text("sku"),
                 "inventory_count": _form_text("inventory_count"),
+                "category": _form_text("category") or "General",
             }
 
             if not (product_form["name"] and product_form["description"] and product_form["price"]):
@@ -197,6 +199,7 @@ def dashboard():
                             sku=product_form["sku"] or None,
                             inventory_count=inventory_count if inventory_count is not None else 0,
                             image_path=image,
+                            category=product_form["category"] or "General",
                         )
                         return _redirect_with_success("product_created", filters)
 
@@ -222,6 +225,7 @@ def dashboard():
                     inventory_raw = _form_text(
                         "inventory_count", str(existing["inventory_count"])
                     )
+                    category_value = _form_text("category", str(cast(str, existing.get("category", "General")))) or "General"
 
                     price_value, inventory_value, numeric_error = _parse_numeric_fields(
                         price_raw, inventory_raw
@@ -254,6 +258,7 @@ def dashboard():
                                 sku=sku,
                                 inventory_count=inventory_value if inventory_value is not None else int(str(existing["inventory_count"])),
                                 image_path=image_path,
+                                category=category_value,
                             )
                             return _redirect_with_success("product_updated", filters)
 

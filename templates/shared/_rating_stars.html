@@ -1,0 +1,12 @@
+{% set rating_value = (avg or 0)|float %}
+{% set percent = (rating_value / 5 * 100) %}
+{% if percent < 0 %}
+    {% set percent = 0 %}
+{% elif percent > 100 %}
+    {% set percent = 100 %}
+{% endif %}
+<span class="rating-stars" aria-hidden="true">
+    <span class="rating-stars-fill" style="width: {{ '%.0f'|format(percent) }}%"></span>
+</span>
+<span class="rating-value">{{ '%.1f'|format(rating_value) }}/5</span>
+<span class="visually-hidden">Rated {{ '%.1f'|format(rating_value) }} out of 5</span>

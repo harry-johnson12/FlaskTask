@@ -46,13 +46,22 @@
                         <p class="page-subtitle">Filter the shelves to surface the exact boards, wiring, tools, and power systems your next build needs — and bookmark them for the coming AI planner.</p>
                     </div>
 
-                    <div class="catalog-controls mb-5">
+                    <div class="catalog-controls mb-5" id="catalogue">
                         <form method="get" class="row g-3 align-items-end">
-                            <div class="col-12 col-lg-5">
+                            <div class="col-12 col-lg-4">
                                 <label for="catalog-search" class="form-label">Search catalogue</label>
                                 <input type="search" class="form-control" id="catalog-search" name="search" placeholder="Name, SKU, or keywords" value="{{ filters.search }}">
                             </div>
                             <div class="col-12 col-sm-6 col-lg-3">
+                                <label for="catalog-category" class="form-label">Category</label>
+                                <select class="form-select" id="catalog-category" name="category">
+                                    <option value="all" {% if selected_category == 'all' %}selected{% endif %}>All categories</option>
+                                    {% for category in category_options[1:] %}
+                                        <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-6 col-sm-4 col-lg-2">
                                 <label for="catalog-stock" class="form-label">Stock state</label>
                                 <select class="form-select" id="catalog-stock" name="stock">
                                     <option value="all" {% if filters.stock == 'all' %}selected{% endif %}>All inventory</option>
@@ -61,7 +70,7 @@
                                     <option value="out" {% if filters.stock == 'out' %}selected{% endif %}>Out of stock</option>
                                 </select>
                             </div>
-                            <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="col-6 col-sm-4 col-lg-2">
                                 <label for="catalog-sort" class="form-label">Sort</label>
                                 <select class="form-select" id="catalog-sort" name="sort">
                                     <option value="newest" {% if filters.sort == 'newest' %}selected{% endif %}>Newest arrivals</option>
@@ -72,9 +81,11 @@
                                     <option value="price_high" {% if filters.sort == 'price_high' %}selected{% endif %}>Price high → low</option>
                                     <option value="inventory_low" {% if filters.sort == 'inventory_low' %}selected{% endif %}>Inventory low → high</option>
                                     <option value="inventory_high" {% if filters.sort == 'inventory_high' %}selected{% endif %}>Inventory high → low</option>
+                                    <option value="rating_high" {% if filters.sort == 'rating_high' %}selected{% endif %}>Rating high → low</option>
+                                    <option value="rating_low" {% if filters.sort == 'rating_low' %}selected{% endif %}>Rating low → high</option>
                                 </select>
                             </div>
-                            <div class="col-12 col-sm-4 col-lg-1">
+                            <div class="col-12 col-sm-4 col-lg-1 d-grid">
                                 <button type="submit" class="btn btn-primary filter-apply-btn">Apply</button>
                             </div>
                         </form>
@@ -92,6 +103,46 @@
                         </div>
                     </div>
 
+                    {% if recently_viewed %}
+                        <div class="content-card mb-5 recently-viewed">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h2 class="h5 mb-0">Recently viewed</h2>
+                                <a href="#catalogue" class="link-primary small">Skip to full catalogue</a>
+                            </div>
+                            <div class="row g-3">
+                                {% for product in recently_viewed %}
+                                    <div class="col-12 col-md-6 col-lg-4">
+                                        <div class="product-card compact-card h-100">
+                                            {% if product['image_path'] %}
+                                                {% set image_src = product['image_path'] %}
+                                                <div class="product-card-media mb-3">
+                                                    <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} product image">
+                                                </div>
+                                            {% endif %}
+                                            <div class="product-meta mb-2">
+                                                <span class="pill">{{ product['category'] }}</span>
+                                                {% if product['sku'] %}
+                                                    <span class="pill">SKU {{ product['sku'] }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <h3 class="h6 mb-2"><a href="{{ url_for('product_detail', product_id=product['id']) }}" class="stretched-link">{{ product['name'] }}</a></h3>
+                                            <div class="rating-line mb-2">
+                                                {% with avg=product['avg_rating'], count=product['review_count'] %}
+                                                    {% include 'shared/_rating_stars.html' with context %}
+                                                    <span class="rating-count text-muted small">{% if count %}({{ count }} review{% if count != 1 %}s{% endif %}){% else %}No reviews yet{% endif %}</span>
+                                                {% endwith %}
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="fw-semibold">${{ "%.2f"|format(product['price']) }}</span>
+                                                <span class="text-muted small">Viewed {{ product['viewed_at'] }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
                     {% if products %}
                         <div class="row grid-tight">
                             {% for product in products %}
@@ -103,14 +154,23 @@
                                                 <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} product image">
                                             </div>
                                         {% endif %}
-                                        <div class="product-meta mb-3">
+                                        <div class="product-meta mb-2">
+                                            <span class="pill">{{ product['category'] }}</span>
                                             {% if product['sku'] %}
                                                 <span class="pill">SKU {{ product['sku'] }}</span>
                                             {% endif %}
                                             <span class="pill">Stock {{ product['inventory_count'] }}</span>
                                         </div>
-                                        <h3>{{ product['name'] }}</h3>
-                                        <p class="text-muted">{{ product['description'] }}</p>
+                                        <h3 class="h5 mb-2">
+                                            <a href="{{ url_for('product_detail', product_id=product['id']) }}">{{ product['name'] }}</a>
+                                        </h3>
+                                        <div class="rating-line mb-2">
+                                            {% with avg=product['avg_rating'], count=product['review_count'] %}
+                                                {% include 'shared/_rating_stars.html' with context %}
+                                                <span class="rating-count text-muted small">{% if count %}({{ count }} review{% if count != 1 %}s{% endif %}){% else %}No reviews yet{% endif %}</span>
+                                            {% endwith %}
+                                        </div>
+                                        <p class="text-muted small">{{ product['description'] }}</p>
                                         <div class="d-flex align-items-baseline justify-content-between">
                                             <span class="fw-semibold fs-5">${{ "%.2f"|format(product['price']) }}</span>
                                             <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="btn btn-ghost btn-sm">Details</a>

@@ -48,7 +48,8 @@ def init_db() -> None:
                 price REAL NOT NULL,
                 sku TEXT UNIQUE,
                 inventory_count INTEGER DEFAULT 0,
-                image_path TEXT
+                image_path TEXT,
+                category TEXT NOT NULL DEFAULT 'General'
             );
 
             CREATE TABLE IF NOT EXISTS customers (
@@ -74,6 +75,27 @@ def init_db() -> None:
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS product_reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (product_id, user_id),
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS user_recent_products (
+                user_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                viewed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, product_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            );
             """
         )
         _ensure_product_columns(conn)
@@ -88,15 +110,16 @@ def insert_product(
     sku: Optional[str] = None,
     inventory_count: int = 0,
     image_path: Optional[str] = None,
+    category: str = "General",
 ) -> None:
     """Persist a new product using a simple parameterized query."""
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO products (name, description, price, sku, inventory_count, image_path)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO products (name, description, price, sku, inventory_count, image_path, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (name, description, price, sku, inventory_count, image_path),
+            (name, description, price, sku, inventory_count, image_path, category),
         )
 
 
@@ -105,6 +128,7 @@ def fetch_products(
     search: Optional[str] = None,
     stock_filter: Optional[str] = None,
     sort: str = "newest",
+    category: Optional[str] = None,
 ) -> Iterable[Mapping[str, object]]:
     """Return products ordered according to the requested sort and filters."""
     conditions: list[str] = []
@@ -126,15 +150,21 @@ def fetch_products(
     if stock_clause:
         conditions.append(stock_clause)
 
+    if category and category.lower() != "all":
+        conditions.append("LOWER(category) = ?")
+        params.append(category.lower())
+
     order_by_map = {
-        "newest": "id DESC",
-        "oldest": "id ASC",
-        "price_low": "price ASC, id DESC",
-        "price_high": "price DESC, id DESC",
-        "inventory_low": "inventory_count ASC, id DESC",
-        "inventory_high": "inventory_count DESC, id DESC",
-        "name_az": "LOWER(name) ASC, id DESC",
-        "name_za": "LOWER(name) DESC, id DESC",
+        "newest": "products.id DESC",
+        "oldest": "products.id ASC",
+        "price_low": "price ASC, products.id DESC",
+        "price_high": "price DESC, products.id DESC",
+        "inventory_low": "inventory_count ASC, products.id DESC",
+        "inventory_high": "inventory_count DESC, products.id DESC",
+        "name_az": "LOWER(name) ASC, products.id DESC",
+        "name_za": "LOWER(name) DESC, products.id DESC",
+        "rating_high": "avg_rating DESC, review_count DESC, products.id DESC",
+        "rating_low": "avg_rating ASC, review_count DESC, products.id DESC",
     }
     order_clause = order_by_map.get(sort, order_by_map["newest"])
 
@@ -145,8 +175,24 @@ def fetch_products(
     with get_connection() as conn:
         rows = conn.execute(
             f"""
-            SELECT id, name, description, price, sku, inventory_count, image_path
+            SELECT
+                products.id,
+                products.name,
+                products.description,
+                products.price,
+                products.sku,
+                products.inventory_count,
+                products.image_path,
+                products.category,
+                COALESCE(r.avg_rating, 0) AS avg_rating,
+                COALESCE(r.review_count, 0) AS review_count
             FROM products
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+                FROM product_reviews
+                GROUP BY product_id
+            ) AS r
+            ON r.product_id = products.id
             {where_clause}
             ORDER BY {order_clause}
             """,
@@ -175,8 +221,24 @@ def fetch_products_by_ids(product_ids: Iterable[int]) -> list[Mapping[str, objec
     with get_connection() as conn:
         rows = conn.execute(
             f"""
-            SELECT id, name, description, price, sku, inventory_count, image_path
+            SELECT
+                products.id,
+                products.name,
+                products.description,
+                products.price,
+                products.sku,
+                products.inventory_count,
+                products.image_path,
+                products.category,
+                COALESCE(r.avg_rating, 0) AS avg_rating,
+                COALESCE(r.review_count, 0) AS review_count
             FROM products
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+                FROM product_reviews
+                GROUP BY product_id
+            ) AS r
+            ON r.product_id = products.id
             WHERE id IN ({placeholders})
             """,
             ordered_ids,
@@ -315,6 +377,7 @@ def seed_data() -> None:
             "sku": "GL-CBL-HD21",
             "inventory": 72,
             "image_path": "img/products/pulselink-hdmi.svg",
+            "category": "Connectivity",
         },
         {
             "name": "NanoMesh Dupont Jumper Set (120 pack)",
@@ -323,6 +386,7 @@ def seed_data() -> None:
             "sku": "GL-JMP-120",
             "inventory": 180,
             "image_path": "img/products/nanomesh-jumpers.svg",
+            "category": "Prototyping",
         },
         {
             "name": "VectorForge ATX Motherboard X790",
@@ -331,6 +395,7 @@ def seed_data() -> None:
             "sku": "GL-MBD-X790",
             "inventory": 26,
             "image_path": "img/products/vectorforge-motherboard.svg",
+            "category": "Compute",
         },
         {
             "name": "QuantumBlade NVMe SSD 2TB",
@@ -339,6 +404,7 @@ def seed_data() -> None:
             "sku": "GL-SSD-QB2",
             "inventory": 64,
             "image_path": "img/products/quantumblade-ssd.svg",
+            "category": "Storage",
         },
         {
             "name": "Helios 850W Modular PSU (80+ Platinum)",
@@ -347,6 +413,7 @@ def seed_data() -> None:
             "sku": "GL-PSU-850",
             "inventory": 41,
             "image_path": "img/products/helios-psu.svg",
+            "category": "Power",
         },
         {
             "name": "AuroraFlex USB-C Hub Pro",
@@ -355,6 +422,7 @@ def seed_data() -> None:
             "sku": "GL-HUB-AF9",
             "inventory": 58,
             "image_path": "img/products/auroraflex-hub.svg",
+            "category": "Accessories",
         },
         {
             "name": "TitanEdge GPU Bracket (ARGB)",
@@ -363,6 +431,7 @@ def seed_data() -> None:
             "sku": "GL-GPU-TED",
             "inventory": 97,
             "image_path": "img/products/titanedge-bracket.svg",
+            "category": "Chassis",
         },
         {
             "name": "IonCore Thermal Paste X9",
@@ -371,6 +440,7 @@ def seed_data() -> None:
             "sku": "GL-THP-X9",
             "inventory": 240,
             "image_path": "img/products/ioncore-thermal.svg",
+            "category": "Cooling",
         },
         {
             "name": "MatrixLab Precision Screwdriver Set",
@@ -379,6 +449,7 @@ def seed_data() -> None:
             "sku": "GL-TLS-M40",
             "inventory": 88,
             "image_path": "img/products/matrixlab-tools.svg",
+            "category": "Tools",
         },
         {
             "name": "GridWave Wi-Fi 7 Router",
@@ -387,6 +458,7 @@ def seed_data() -> None:
             "sku": "GL-NET-GW7",
             "inventory": 35,
             "image_path": "img/products/gridwave-router.svg",
+            "category": "Networking",
         },
         {
             "name": "LumenStrip Addressable LED Kit",
@@ -395,6 +467,7 @@ def seed_data() -> None:
             "sku": "GL-LIT-LMK",
             "inventory": 120,
             "image_path": "img/products/lumenstrip-kit.svg",
+            "category": "Lighting",
         },
         {
             "name": "OptiMesh 140mm PWM Fan (2 pack)",
@@ -403,6 +476,7 @@ def seed_data() -> None:
             "sku": "GL-FAN-140",
             "inventory": 105,
             "image_path": "img/products/optimesh-fan.svg",
+            "category": "Cooling",
         },
         {
             "name": "CircuitNest Pico AI Dev Board",
@@ -411,6 +485,7 @@ def seed_data() -> None:
             "sku": "GL-DEV-PICO",
             "inventory": 140,
             "image_path": "img/products/circuitnest-ai.svg",
+            "category": "Embedded",
         },
         {
             "name": "AtlasEdge Robotics Control Kit",
@@ -419,6 +494,7 @@ def seed_data() -> None:
             "sku": "GL-ROB-AEX",
             "inventory": 18,
             "image_path": "img/products/atlasedge-robotics.svg",
+            "category": "Robotics",
         },
         {
             "name": "BioFlux Wearable Sensor Pod",
@@ -427,6 +503,7 @@ def seed_data() -> None:
             "sku": "GL-WBL-BFX",
             "inventory": 52,
             "image_path": "img/products/bioflux-wearable.svg",
+            "category": "Wearables",
         },
         {
             "name": "SymphonyIQ Studio Interface",
@@ -435,6 +512,7 @@ def seed_data() -> None:
             "sku": "GL-AUD-SIQ",
             "inventory": 44,
             "image_path": "img/products/symphonyiq-interface.svg",
+            "category": "Audio",
         },
         {
             "name": "VoltStack Portable Power Deck",
@@ -443,6 +521,7 @@ def seed_data() -> None:
             "sku": "GL-PWR-VSD",
             "inventory": 22,
             "image_path": "img/products/voltstack-power.svg",
+            "category": "Power",
         },
         {
             "name": "CarbonWeave 3D Filament Bundle",
@@ -451,6 +530,7 @@ def seed_data() -> None:
             "sku": "GL-3DP-CWB",
             "inventory": 75,
             "image_path": "img/products/carbonweave-filament.svg",
+            "category": "Fabrication",
         },
         {
             "name": "AetherGrid Smart Home Relay Hub",
@@ -459,6 +539,7 @@ def seed_data() -> None:
             "sku": "GL-IOT-AGR",
             "inventory": 68,
             "image_path": "img/products/aethergrid-relay.svg",
+            "category": "IoT",
         },
         {
             "name": "AquaSense Hydroponic Sensor Array",
@@ -467,6 +548,7 @@ def seed_data() -> None:
             "sku": "GL-AGR-AQS",
             "inventory": 33,
             "image_path": "img/products/aquasense-array.svg",
+            "category": "Sensors",
         },
         {
             "name": "HelioDrone Scout Frame Kit",
@@ -475,6 +557,7 @@ def seed_data() -> None:
             "sku": "GL-DRN-HDS",
             "inventory": 27,
             "image_path": "img/products/heliodrone-scout.svg",
+            "category": "Drones",
         },
         {
             "name": "SkyPath Satellite IoT Modem",
@@ -483,6 +566,7 @@ def seed_data() -> None:
             "sku": "GL-COM-SPT",
             "inventory": 31,
             "image_path": "img/products/skypath-modem.svg",
+            "category": "Communications",
         },
         {
             "name": "NovaPulse Laser Engraver Module",
@@ -491,6 +575,7 @@ def seed_data() -> None:
             "sku": "GL-FAB-NPL",
             "inventory": 29,
             "image_path": "img/products/novapulse-engraver.svg",
+            "category": "Fabrication",
         },
         {
             "name": "PulseGuard Network Sentinel Appliance",
@@ -499,6 +584,7 @@ def seed_data() -> None:
             "sku": "GL-SEC-PGD",
             "inventory": 24,
             "image_path": "img/products/pulsegard-sentinel.svg",
+            "category": "Security",
         },
         {
             "name": "TrackSense UWB Locator Beacons",
@@ -507,6 +593,7 @@ def seed_data() -> None:
             "sku": "GL-IOT-TSB",
             "inventory": 38,
             "image_path": "img/products/tracksense-uwb.svg",
+            "category": "Positioning",
         },
         {
             "name": "LumenWave Solar Lighting Kit",
@@ -515,6 +602,7 @@ def seed_data() -> None:
             "sku": "GL-ENG-LWS",
             "inventory": 46,
             "image_path": "img/products/lumenwave-solar.svg",
+            "category": "Energy",
         },
         {
             "name": "QuantumWeave Edge AI Accelerator",
@@ -523,12 +611,13 @@ def seed_data() -> None:
             "sku": "GL-AI-QWA",
             "inventory": 21,
             "image_path": "img/products/quantumweave-accelerator.svg",
+            "category": "AI Compute",
         },
     ]
 
     with get_connection() as conn:
         current_version = conn.execute("PRAGMA user_version").fetchone()[0]
-        target_version = 5
+        target_version = 6
 
         needs_refresh = current_version < target_version
         if not needs_refresh:
@@ -540,8 +629,8 @@ def seed_data() -> None:
             for product in samples:
                 conn.execute(
                     """
-                    INSERT INTO products (name, description, price, sku, inventory_count, image_path)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO products (name, description, price, sku, inventory_count, image_path, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         product["name"],
@@ -550,6 +639,7 @@ def seed_data() -> None:
                         product["sku"],
                         product["inventory"],
                         product["image_path"],
+                        product["category"],
                     ),
                 )
             conn.execute(f"PRAGMA user_version = {target_version}")
@@ -574,13 +664,174 @@ def get_product(product_id: int) -> Optional[Mapping[str, object]]:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, name, description, price, sku, inventory_count, image_path
+            SELECT
+                products.id,
+                products.name,
+                products.description,
+                products.price,
+                products.sku,
+                products.inventory_count,
+                products.image_path,
+                products.category,
+                COALESCE(r.avg_rating, 0) AS avg_rating,
+                COALESCE(r.review_count, 0) AS review_count
             FROM products
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+                FROM product_reviews
+                GROUP BY product_id
+            ) AS r
+            ON r.product_id = products.id
             WHERE id = ?
             """,
             (product_id,),
         ).fetchone()
         return dict(row) if row else None
+
+
+def upsert_product_review(product_id: int, user_id: int, rating: int, comment: str | None = None) -> None:
+    """Create or update a review for a product from a user."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO product_reviews (product_id, user_id, rating, comment, created_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(product_id, user_id)
+            DO UPDATE SET
+                rating = excluded.rating,
+                comment = excluded.comment,
+                created_at = CURRENT_TIMESTAMP
+            """,
+            (product_id, user_id, rating, comment.strip() if comment else None),
+        )
+
+
+def fetch_product_reviews(product_id: int) -> Iterable[Mapping[str, object]]:
+    """Return reviews for the given product ordered by newest first."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                product_reviews.id,
+                product_reviews.rating,
+                product_reviews.comment,
+                product_reviews.created_at,
+                product_reviews.user_id,
+                users.username
+            FROM product_reviews
+            JOIN users ON users.id = product_reviews.user_id
+            WHERE product_reviews.product_id = ?
+            ORDER BY datetime(product_reviews.created_at) DESC
+            """,
+            (product_id,),
+        )
+        return [dict(row) for row in rows]
+
+
+def get_user_review(product_id: int, user_id: int) -> Optional[Mapping[str, object]]:
+    """Return a specific user's review for a product if present."""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, rating, comment, created_at
+            FROM product_reviews
+            WHERE product_id = ? AND user_id = ?
+            """,
+            (product_id, user_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_product_rating_summary(product_id: int) -> Mapping[str, float]:
+    """Return the average rating and total review count for a product."""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                COALESCE(AVG(rating), 0) AS avg_rating,
+                COUNT(*) AS review_count
+            FROM product_reviews
+            WHERE product_id = ?
+            """,
+            (product_id,),
+        ).fetchone()
+        if not row:
+            return {"avg_rating": 0.0, "review_count": 0}
+        return {"avg_rating": float(row["avg_rating"]), "review_count": int(row["review_count"])}
+
+
+def upsert_recent_product_view(user_id: int, product_id: int, max_items: int = 10) -> None:
+    """Record that a user viewed a product, keeping only the latest entries."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_recent_products (user_id, product_id, viewed_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id, product_id)
+            DO UPDATE SET viewed_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, product_id),
+        )
+        conn.execute(
+            """
+            DELETE FROM user_recent_products
+            WHERE user_id = ? AND product_id NOT IN (
+                SELECT product_id
+                FROM user_recent_products
+                WHERE user_id = ?
+                ORDER BY datetime(viewed_at) DESC
+                LIMIT ?
+            )
+            """,
+            (user_id, user_id, max_items),
+        )
+
+
+def fetch_recent_products_for_user(user_id: int, limit: int = 5) -> list[Mapping[str, object]]:
+    """Return the user's most recently viewed products."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                products.id,
+                products.name,
+                products.description,
+                products.price,
+                products.sku,
+                products.inventory_count,
+                products.image_path,
+                products.category,
+                COALESCE(r.avg_rating, 0) AS avg_rating,
+                COALESCE(r.review_count, 0) AS review_count,
+                user_recent_products.viewed_at
+            FROM user_recent_products
+            JOIN products ON products.id = user_recent_products.product_id
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+                FROM product_reviews
+                GROUP BY product_id
+            ) AS r ON r.product_id = products.id
+            WHERE user_recent_products.user_id = ?
+            ORDER BY datetime(user_recent_products.viewed_at) DESC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        )
+        return [dict(row) for row in rows]
+
+
+def fetch_product_categories() -> list[str]:
+    """Return available product categories ordered alphabetically."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT category
+            FROM products
+            WHERE TRIM(category) <> ''
+            ORDER BY LOWER(category)
+            """
+        )
+        return [row["category"] for row in rows]
 
 
 def update_product(
@@ -592,6 +843,7 @@ def update_product(
     sku: Optional[str] = None,
     inventory_count: Optional[int] = None,
     image_path: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> None:
     """Update a product with provided fields."""
     fields = []
@@ -608,6 +860,7 @@ def update_product(
     _append("sku", sku)
     _append("inventory_count", inventory_count)
     _append("image_path", image_path)
+    _append("category", category)
 
     if not fields:
         return
@@ -624,3 +877,5 @@ def _ensure_product_columns(conn: sqlite3.Connection) -> None:
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(products)")}
     if "image_path" not in columns:
         conn.execute("ALTER TABLE products ADD COLUMN image_path TEXT")
+    if "category" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT 'General'")
