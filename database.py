@@ -658,6 +658,53 @@ def seed_data() -> None:
                 ],
             )
 
+        # Ensure sample users exist so seeded reviews can reference them.
+        seed_users = [
+            ("gearloom_lab", "seed-hash"),
+            ("field_ops", "seed-hash"),
+            ("grid_support", "seed-hash"),
+            ("circuit_artist", "seed-hash"),
+            ("render_stack", "seed-hash"),
+        ]
+        for username, password_hash in seed_users:
+            conn.execute(
+                "INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)",
+                (username, password_hash),
+            )
+
+        review_total = conn.execute("SELECT COUNT(*) FROM product_reviews").fetchone()[0]
+        if review_total == 0:
+            sku_lookup = {
+                row["sku"]: row["id"]
+                for row in conn.execute("SELECT id, sku FROM products WHERE sku IS NOT NULL")
+            }
+            user_lookup = {
+                row["username"]: row["id"]
+                for row in conn.execute(
+                    "SELECT id, username FROM users WHERE username IN (?, ?, ?, ?, ?)",
+                    tuple(user for user, _ in seed_users),
+                )
+            }
+            sample_reviews = [
+                ("GL-ROB-AEX", "gearloom_lab", 5, "Handled four actuators and a LiDAR rig without finicky tuning. Firmware hooks were spot on."),
+                ("GL-DRN-HDS", "field_ops", 4, "Frame folds down fast and survived a windy survey. Would love a slightly wider power rail."),
+                ("GL-PWR-VSD", "grid_support", 5, "Ran a field lab for two days with constant 600W draw. The MPPT kept solar intake steady."),
+                ("GL-DEV-PICO", "circuit_artist", 4, "MicroPython examples flashed cleanly. Onboard IMU calibration doc was helpful."),
+                ("GL-AI-QWA", "render_stack", 5, "Slotted into a compact inference node and chews through ONNX graphs without throttling."),
+            ]
+            for sku, username, rating, comment in sample_reviews:
+                product_id = sku_lookup.get(sku)
+                user_id = user_lookup.get(username)
+                if not product_id or not user_id:
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO product_reviews (product_id, user_id, rating, comment)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (product_id, user_id, rating, comment),
+                )
+
 
 def get_product(product_id: int) -> Optional[Mapping[str, object]]:
     """Return a single product or None when not found."""

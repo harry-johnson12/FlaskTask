@@ -291,7 +291,7 @@ def products() -> str:
 
     catalogue = list(fetch_products(**fetch_kwargs))
     user_id = _current_user_id()
-    recently_viewed = fetch_recent_products_for_user(user_id, limit=5) if user_id else []
+    recently_viewed = fetch_recent_products_for_user(user_id, limit=3) if user_id else []
     filters = {
         "search": search,
         "stock": stock,
@@ -323,7 +323,7 @@ def product_detail(product_id: int) -> Union[str, Response]:
 
     user_id = _current_user_id()
     if user_id:
-        upsert_recent_product_view(user_id, product_id)
+        upsert_recent_product_view(user_id, product_id, max_items=3)
 
     if request.method == "POST":
         form_type = request.form.get("form_type", "add_to_cart")

@@ -194,6 +194,26 @@ code {
     padding: clamp(1.4rem, 3vw, 2.1rem);
 }
 
+.recently-viewed .product-card {
+    padding: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.recently-viewed .product-card-media {
+    max-height: 150px;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+}
+
+.recently-viewed .product-card-media img {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+}
+
+.recently-viewed .rating-value {
+    font-size: 0.75rem;
+}
+
 .rating-line {
     display: flex;
     align-items: center;
