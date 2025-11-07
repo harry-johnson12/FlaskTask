@@ -52,14 +52,6 @@ def init_db() -> None:
                 category TEXT NOT NULL DEFAULT 'General'
             );
 
-            CREATE TABLE IF NOT EXISTS customers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -643,20 +635,6 @@ def seed_data() -> None:
                     ),
                 )
             conn.execute(f"PRAGMA user_version = {target_version}")
-
-        # Seed a couple of customers so analytics look alive.
-        customer_count = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
-        if customer_count == 0:
-            conn.executemany(
-                """
-                INSERT INTO customers (first_name, last_name, email)
-                VALUES (?, ?, ?)
-                """,
-                [
-                    ("Jamie", "Rivera", "jamie@example.com"),
-                    ("Taylor", "Bennett", "taylor@example.com"),
-                ],
-            )
 
         # Ensure sample users exist so seeded reviews can reference them.
         seed_users = [
