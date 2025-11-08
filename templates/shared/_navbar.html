@@ -1,0 +1,38 @@
+<nav class="navbar navbar-expand-lg">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
+            <span>Gearloom</span>
+        </a>
+        <div class="navbar-nav ms-auto align-items-center gap-2">
+            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                Home
+            </a>
+            <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
+                About
+            </a>
+            <a class="nav-link {% if request.endpoint == 'products' %}active{% endif %}" href="{{ url_for('products') }}">
+                Products
+            </a>
+            <a class="nav-link {% if request.endpoint == 'seller_dashboard' %}active{% endif %}" href="{{ url_for('seller_dashboard') }}">
+                Seller Dashboard
+            </a>
+            <a class="nav-link cart-link {% if request.endpoint == 'cart' %}active{% endif %}" href="{{ url_for('cart') }}">
+                Cart
+                {% if cart_item_count %}
+                    <span class="cart-count">{{ cart_item_count }}</span>
+                {% endif %}
+            </a>
+            {% if current_user %}
+                {% if current_user.get('is_seller') %}
+                    <span class="pill text-success text-uppercase small">Seller</span>
+                {% endif %}
+                <span class="user-pill">{{ current_user['username'] }}</span>
+                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                <a class="nav-link" href="{{ url_for('signup') }}">Sign up</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>

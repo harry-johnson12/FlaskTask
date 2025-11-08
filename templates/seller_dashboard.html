@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Dashboard - Gearloom</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+    {% include 'shared/_navbar.html' %}
+
+    <div class="page-shell">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=True) %}
+                {% if messages %}
+                    <div class="flash-messages mb-4">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% if seller %}
+                <div class="hero-card mb-4">
+                    <div class="badge-soft mb-3">Seller dashboard</div>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <h1 class="page-title h2 mb-2">{{ seller['store_name'] }}</h1>
+                            <p class="page-subtitle mb-0 text-muted">Add new SKUs, tune inventory, and keep your catalogue fresh for buyers.</p>
+                        </div>
+                        <div class="text-md-end">
+                            {% if seller['contact_email'] %}
+                                <div class="text-muted small">Contact email</div>
+                                <strong>{{ seller['contact_email'] }}</strong>
+                            {% endif %}
+                            <div class="text-muted small">Joined {{ seller['created_at'] }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row grid-tight">
+                    <div class="col-lg-5">
+                        <div class="content-card mb-4">
+                            <h2 class="h4 mb-2">Add a product</h2>
+                            <p class="text-muted mb-4">Uploads sync instantly with the public storefront.</p>
+                            <form method="post" enctype="multipart/form-data" class="admin-form">
+                                <input type="hidden" name="action" value="create_product">
+                                <div class="mb-3">
+                                    <label class="form-label" for="seller-product-name">Name</label>
+                                    <input type="text" class="form-control" id="seller-product-name" name="name" value="{{ create_form.name }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="seller-product-description">Description</label>
+                                    <textarea class="form-control" id="seller-product-description" name="description" rows="3" required>{{ create_form.description }}</textarea>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label" for="seller-product-price">Price</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="text" class="form-control" id="seller-product-price" name="price" value="{{ create_form.price }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label" for="seller-product-inventory">Inventory</label>
+                                        <input type="text" class="form-control" id="seller-product-inventory" name="inventory_count" value="{{ create_form.inventory_count }}">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="seller-product-sku">SKU (optional)</label>
+                                    <input type="text" class="form-control" id="seller-product-sku" name="sku" value="{{ create_form.sku }}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="seller-product-category">Category</label>
+                                    <input type="text" class="form-control" id="seller-product-category" name="category" value="{{ create_form.category }}" placeholder="e.g. Robotics">
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label" for="seller-product-image">Product image</label>
+                                    <input type="file" class="form-control" id="seller-product-image" name="image" accept="image/*">
+                                    <div class="form-text">PNG, JPG, GIF, or WEBP. Aim for at least 600px on the shortest side.</div>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">Publish product</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="content-card mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h2 class="h4 mb-0">Your catalogue</h2>
+                                <span class="pill">{{ products|length }} live</span>
+                            </div>
+                            {% if products %}
+                                <div class="admin-product-list">
+                                    {% for product in products %}
+                                    <details class="product-details" {% if loop.first %}open{% endif %}>
+                                        <summary class="product-summary">
+                                            <div>
+                                                <strong>{{ product['name'] }}</strong>
+                                                <span class="text-muted d-block small">SKU {{ product['sku'] or '—' }} &middot; {{ product['category'] }}</span>
+                                            </div>
+                                            <div class="text-end">
+                                                    <span class="fw-semibold">${{ '%.2f'|format(product['price']) }}</span>
+                                                    <span class="text-muted small d-block">Stock {{ product['inventory_count'] }}</span>
+                                                </div>
+                                            </summary>
+                                            <div class="product-edit-card">
+                                                <form method="post" enctype="multipart/form-data">
+                                                    <input type="hidden" name="product_id" value="{{ product['id'] }}">
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-3">
+                                                            <label class="form-label">Name</label>
+                                                            <input type="text" class="form-control" name="name" value="{{ product['name'] }}">
+                                                        </div>
+                                                        <div class="col-md-6 mb-3">
+                                                            <label class="form-label">Category</label>
+                                                            <input type="text" class="form-control" name="category" value="{{ product['category'] }}">
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Description</label>
+                                                        <textarea class="form-control" name="description" rows="3">{{ product['description'] }}</textarea>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-4 mb-3">
+                                                            <label class="form-label">Price</label>
+                                                            <div class="input-group">
+                                                                <span class="input-group-text">$</span>
+                                                                <input type="text" class="form-control" name="price" value="{{ product['price'] }}">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-4 mb-3">
+                                                            <label class="form-label">Inventory</label>
+                                                            <input type="text" class="form-control" name="inventory_count" value="{{ product['inventory_count'] }}">
+                                                        </div>
+                                                        <div class="col-md-4 mb-3">
+                                                            <label class="form-label">SKU</label>
+                                                            <input type="text" class="form-control" name="sku" value="{{ product['sku'] }}">
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Image</label>
+                                                        {% if product['image_path'] %}
+                                                            <div class="seller-thumb mb-2">
+                                                                <img src="{{ url_for('static', filename=product['image_path']) if not product['image_path'].startswith('http') else product['image_path'] }}" alt="{{ product['name'] }} image">
+                                                            </div>
+                                                        {% endif %}
+                                                        <input type="file" class="form-control" name="image" accept="image/*">
+                                                    </div>
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <button type="submit" class="btn btn-primary btn-sm" name="action" value="update_product">Update</button>
+                                                        <button type="submit" class="btn btn-link text-danger px-0" name="action" value="delete_product">Delete</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </details>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <strong>No products yet.</strong>
+                                    Publish your first SKU to see it listed here.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="row justify-content-center">
+                    <div class="col-xl-8">
+                        <div class="hero-card text-center">
+                            <div class="badge-soft mb-3">Seller program</div>
+                            <h1 class="page-title h2 mb-3">Open your Gearloom storefront</h1>
+                            <p class="page-subtitle">Unlock a dedicated dashboard to publish products and tap into the Gearloom buyer network.</p>
+                            <form method="post" class="content-card mt-4">
+                                <input type="hidden" name="action" value="register_seller">
+                                <div class="mb-3 text-start">
+                                    <label class="form-label" for="store-name">Store name</label>
+                                    <input type="text" class="form-control" id="store-name" name="store_name" required placeholder="e.g. Atlas Robotics Lab">
+                                </div>
+                                <div class="mb-3 text-start">
+                                    <label class="form-label" for="store-email">Contact email (optional)</label>
+                                    <input type="email" class="form-control" id="store-email" name="contact_email" placeholder="you@labs.io">
+                                </div>
+                                <div class="mb-4 text-start">
+                                    <label class="form-label" for="store-description">About your store</label>
+                                    <textarea class="form-control" id="store-description" name="description" rows="3" placeholder="What do you specialize in?"></textarea>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">Become a seller</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container text-center">
+            <div class="footer-links">
+                <a href="{{ url_for('help_center') }}" rel="noopener">Help Center</a>
+                <a href="{{ url_for('returns_policy') }}" rel="noopener">Returns Policy</a>
+                <a href="{{ url_for('shipping_info') }}" rel="noopener">Shipping &amp; Delivery</a>
+            </div>
+            <p class="footer-text mb-0">&copy; 2024 Gearloom Sellers.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

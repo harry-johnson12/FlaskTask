@@ -1,306 +1,270 @@
-"""Admin-only Flask application for managing the store catalogue."""
+"""Admin-only Flask application for managing customers and orders."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional, Any, cast
-from uuid import uuid4
+from functools import wraps
+from typing import Optional, cast
 
-from flask import Flask, redirect, render_template, request, url_for
-from werkzeug.utils import secure_filename
+from flask import Flask, flash, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash
 
 from database import (
-    delete_product,
-    fetch_products,
+    create_customer,
+    create_order,
+    delete_customer,
+    delete_order,
+    fetch_customers,
+    fetch_orders,
+    fetch_sellers,
     fetch_users,
-    get_product,
+    get_customer,
+    get_order,
+    get_user_by_id,
+    get_user_by_username,
     init_db,
-    insert_product,
-    update_product,
+    update_customer,
+    update_order,
 )
 
 # Ensure tables exist before the admin panel starts serving requests.
 init_db()
 
 admin_app = Flask(__name__)
-
-# Keep uploads alongside the app so both Flask instances can serve them.
-UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+admin_app.config["SECRET_KEY"] = "dev-secret-key-change-me"
+admin_app.config["SESSION_COOKIE_NAME"] = "gearloom-admin-session"
 
 
-@dataclass
-class ProductFilterState:
-    """Captured filter values plus derived helpers for rendering and redirects."""
-
-    search: str = ""
-    stock: str = "all"
-    sort: str = "newest"
-    fetch_kwargs: dict[str, Any] = field(default_factory=dict)
-    query_args: dict[str, str] = field(default_factory=dict)
-    has_active: bool = False
-
-
-def _empty_product_form() -> dict[str, str]:
-    return {
-        "name": "",
-        "description": "",
-        "price": "",
-        "sku": "",
-        "inventory_count": "",
-        "category": "",
-    }
-
-
-def _allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def _save_image(file_storage) -> Optional[str]:
-    """Persist an uploaded image and return the relative static path."""
-    if not file_storage or not file_storage.filename:
+def _current_admin() -> Optional[dict[str, object]]:
+    user_id = session.get("admin_user_id")
+    if user_id is None:
         return None
-
-    filename = secure_filename(file_storage.filename)
-    if not _allowed_file(filename):
-        raise ValueError("Please upload a PNG, JPG, GIF, or WEBP image.")
-
-    extension = Path(filename).suffix
-    unique_name = f"{uuid4().hex}{extension}"
-    destination = UPLOAD_DIR / unique_name
-    file_storage.save(destination)
-    return f"uploads/{unique_name}"
-
-
-def _delete_image(path: Optional[str]) -> None:
-    if not path:
-        return
-    file_path = Path(__file__).with_name("static").joinpath(path)
     try:
-        file_path.unlink()
-    except FileNotFoundError:
-        pass
+        user_id_int = int(user_id)
+    except (TypeError, ValueError):
+        session.pop("admin_user_id", None)
+        return None
+    user = get_user_by_id(user_id_int)
+    if not user or not user.get("is_admin"):
+        session.pop("admin_user_id", None)
+        return None
+    return dict(user)
 
 
-def _form_text(field_name: str, fallback: str = "") -> str:
-    """Return a trimmed version of a form field while avoiding attribute errors."""
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _current_admin():
+            flash("Sign in as an admin to access the console.", "warning")
+            next_url = request.path if request.path else url_for("dashboard")
+            return redirect(url_for("login", next=next_url))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def _form_text(field_name: str, default: str = "") -> str:
     raw_value = request.form.get(field_name)
     if raw_value is None:
-        return fallback
+        return default
     return raw_value.strip()
 
 
-def _parse_numeric_fields(price_raw: str, inventory_raw: str) -> tuple[Optional[float], Optional[int], Optional[str]]:
-    """Convert price and inventory form inputs while sharing validation messaging."""
-    try:
-        price_value = float(price_raw)
-        inventory_value = int(inventory_raw or 0)
-    except ValueError:
-        return None, None, "Price must be a number and inventory must be a whole number."
-    return price_value, inventory_value, None
+@admin_app.context_processor
+def inject_admin_user() -> dict[str, object]:
+    return {"admin_user": _current_admin()}
 
 
-def _parse_product_filters() -> ProductFilterState:
-    """Normalise product filter inputs used by the product editor."""
-    search = request.args.get("search", "").strip()
-    stock = request.args.get("stock", "all").lower()
-    sort = request.args.get("sort", "newest").lower()
+@admin_app.route("/login", methods=["GET", "POST"])
+def login():
+    """Simple admin-only login tied to the shared user table."""
+    if _current_admin():
+        return redirect(url_for("dashboard"))
 
-    allowed_stock = {"all", "in", "low", "out"}
-    if stock not in allowed_stock:
-        stock = "all"
+    next_url = request.args.get("next", url_for("dashboard"))
+    if request.method == "POST":
+        username = _form_text("username")
+        password = request.form.get("password") or ""
+        next_url = request.form.get("next") or next_url
 
-    allowed_sort = {
-        "newest",
-        "oldest",
-        "price_low",
-        "price_high",
-        "inventory_low",
-        "inventory_high",
-        "name_az",
-        "name_za",
-    }
-    if sort not in allowed_sort:
-        sort = "newest"
+        user = get_user_by_username(username) if username else None
+        if not user or not user.get("is_admin"):
+            flash("Invalid admin credentials.", "danger")
+        elif not check_password_hash(cast(str, user["password_hash"]), password):
+            flash("Invalid admin credentials.", "danger")
+        else:
+            session["admin_user_id"] = int(cast(int, user["id"]))
+            flash("Welcome back.", "success")
+            if next_url and next_url.startswith("/"):
+                return redirect(next_url)
+            return redirect(url_for("dashboard"))
 
-    fetch_kwargs: dict[str, Any] = {"sort": sort}
-    query_args: dict[str, str] = {}
-
-    if search:
-        fetch_kwargs["search"] = search
-        query_args["search"] = search
-    if stock != "all":
-        fetch_kwargs["stock_filter"] = stock
-        query_args["stock"] = stock
-    if sort != "newest":
-        query_args["sort"] = sort
-
-    has_active = bool(search or stock != "all" or sort != "newest")
-
-    return ProductFilterState(
-        search=search,
-        stock=stock,
-        sort=sort,
-        fetch_kwargs=fetch_kwargs,
-        query_args=query_args,
-        has_active=has_active,
-    )
+    return render_template("admin_login.html", next_url=next_url)
 
 
-def _redirect_with_success(code: str, filters: ProductFilterState):
-    """Return a redirect response while preserving any active filters."""
-    params = {"success": code, **filters.query_args}
-    return redirect(url_for("dashboard", **cast(dict[str, Any], params)))
+@admin_app.route("/logout")
+def logout():
+    session.pop("admin_user_id", None)
+    flash("Signed out of the admin console.", "info")
+    return redirect(url_for("login"))
 
 
 @admin_app.route("/", methods=["GET", "POST"])
+@admin_required
 def dashboard():
-    """Lightweight admin panel to manage the storefront catalogue and accounts."""
-    message = None
-    error = None
-
-    filters = _parse_product_filters()
-    product_form = _empty_product_form()
+    """Admin console focused on customers, orders, and account visibility."""
+    status_choices = ["pending", "processing", "fulfilled", "cancelled"]
 
     if request.method == "POST":
-        action = _form_text("action")
+        action = request.form.get("action", "")
 
-        if action == "create_product":
-            product_form = {
-                "name": _form_text("name"),
-                "description": _form_text("description"),
-                "price": _form_text("price"),
-                "sku": _form_text("sku"),
-                "inventory_count": _form_text("inventory_count"),
-                "category": _form_text("category") or "General",
-            }
-
-            if not (product_form["name"] and product_form["description"] and product_form["price"]):
-                error = "Name, description, and price are required."
+        if action == "create_customer":
+            first_name = _form_text("first_name")
+            last_name = _form_text("last_name")
+            email = _form_text("email")
+            company = _form_text("company") or None
+            notes = _form_text("notes") or None
+            if not (first_name and last_name and email):
+                flash("First name, last name, and email are required.", "warning")
             else:
-                price, inventory_count, numeric_error = _parse_numeric_fields(
-                    product_form["price"], product_form["inventory_count"]
-                )
-                if numeric_error:
-                    error = numeric_error
-                else:
-                    try:
-                        image = _save_image(request.files.get("image"))
-                    except ValueError as exc:
-                        error = str(exc)
-                    else:
-                        insert_product(
-                            product_form["name"],
-                            product_form["description"],
-                            price if price is not None else 0.0,
-                            sku=product_form["sku"] or None,
-                            inventory_count=inventory_count if inventory_count is not None else 0,
-                            image_path=image,
-                            category=product_form["category"] or "General",
-                        )
-                        return _redirect_with_success("product_created", filters)
+                create_customer(first_name, last_name, email, company=company, notes=notes)
+                flash("Customer created.", "success")
+            return redirect(url_for("dashboard"))
 
-        elif action == "edit_product":
+        if action == "update_customer":
             try:
-                product_id = int(request.form.get("product_id", ""))
-            except ValueError:
-                error = "Could not resolve the product to update."
-            else:
-                existing = get_product(product_id)
-                if not existing:
-                    error = "Could not find the product to update."
-                else:
-                    # Use the hidden field so admins can opt to clear the image entirely.
-                    current_image = _form_text(
-                        "current_image", str(cast(Optional[str], existing.get("image_path")) or "")
-                    ) or cast(Optional[str], existing.get("image_path"))
-                    should_remove_image = _form_text("remove_image") == "1"
-                    name = _form_text("name", str(cast(str, existing["name"])))
-                    description = _form_text("description", str(cast(str, existing["description"])))
-                    price_raw = _form_text("price", f"{existing['price']}")
-                    sku = _form_text("sku", str(cast(Optional[str], existing.get("sku")) or "")) or None
-                    inventory_raw = _form_text(
-                        "inventory_count", str(existing["inventory_count"])
-                    )
-                    category_value = _form_text("category", str(cast(str, existing.get("category", "General")))) or "General"
+                customer_id = int(request.form.get("customer_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not resolve the customer to update.", "danger")
+                return redirect(url_for("dashboard"))
 
-                    price_value, inventory_value, numeric_error = _parse_numeric_fields(
-                        price_raw, inventory_raw
-                    )
-                    if numeric_error:
-                        error = numeric_error
-                    else:
-                        try:
-                            new_image = _save_image(request.files.get("image"))
-                        except ValueError as exc:
-                            error = str(exc)
-                        else:
-                            image_path = current_image
+            first_name = _form_text("first_name")
+            last_name = _form_text("last_name")
+            email = _form_text("email")
+            if not (first_name and last_name and email):
+                flash("First name, last name, and email are required.", "warning")
+                return redirect(url_for("dashboard"))
 
-                            if should_remove_image and current_image:
-                                _delete_image(current_image)
-                                image_path = None
-                                current_image = None
+            update_customer(
+                customer_id,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                company=_form_text("company") or None,
+                notes=_form_text("notes") or None,
+            )
+            flash("Customer updated.", "success")
+            return redirect(url_for("dashboard"))
 
-                            if new_image:
-                                if current_image and current_image != new_image:
-                                    _delete_image(current_image)
-                                image_path = new_image
-
-                            update_product(
-                                product_id,
-                                name=name,
-                                description=description,
-                                price=price_value if price_value is not None else float(str(existing["price"])),
-                                sku=sku,
-                                inventory_count=inventory_value if inventory_value is not None else int(str(existing["inventory_count"])),
-                                image_path=image_path,
-                                category=category_value,
-                            )
-                            return _redirect_with_success("product_updated", filters)
-
-        elif action == "delete_product":
+        if action == "delete_customer":
             try:
-                product_id = int(request.form.get("product_id", ""))
-            except ValueError:
-                error = "Could not resolve the product to delete."
+                customer_id = int(request.form.get("customer_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not resolve the customer to delete.", "danger")
             else:
-                product = get_product(product_id)
-                if not product:
-                    error = "Could not find the product to delete."
-                else:
-                    _delete_image(cast(Optional[str], product.get("image_path")))
-                    delete_product(product_id)
-                    return _redirect_with_success("product_deleted", filters)
+                delete_customer(customer_id)
+                flash("Customer removed.", "info")
+            return redirect(url_for("dashboard"))
 
-        else:
-            error = "Unknown admin action requested."
+        if action == "create_order":
+            try:
+                customer_id = int(request.form.get("customer_id", ""))
+            except (TypeError, ValueError):
+                flash("Select a customer for the order.", "warning")
+                return redirect(url_for("dashboard"))
 
-    success_messages = {
-        "product_created": "Product saved.",
-        "product_updated": "Product updated.",
-        "product_deleted": "Product removed.",
-    }
-    success_code = request.args.get("success")
-    if success_code and success_code in success_messages:
-        message = success_messages[success_code]
+            if not get_customer(customer_id):
+                flash("Customer not found.", "danger")
+                return redirect(url_for("dashboard"))
 
-    products = list(fetch_products(**filters.fetch_kwargs))
-    product_count = len(products)
-    users = list(fetch_users())
+            seller_id_raw = request.form.get("seller_id") or ""
+            seller_id = None
+            if seller_id_raw:
+                try:
+                    seller_id = int(seller_id_raw)
+                except ValueError:
+                    seller_id = None
+
+            status_value = _form_text("status") or "pending"
+            total_raw = _form_text("total_amount") or "0"
+            try:
+                total_amount = float(total_raw)
+            except ValueError:
+                flash("Order total must be numeric.", "warning")
+                return redirect(url_for("dashboard"))
+
+            create_order(
+                customer_id,
+                seller_id=seller_id,
+                status=status_value,
+                total_amount=total_amount,
+                notes=_form_text("notes") or None,
+            )
+            flash("Order recorded.", "success")
+            return redirect(url_for("dashboard"))
+
+        if action == "update_order":
+            try:
+                order_id = int(request.form.get("order_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not resolve the order.", "danger")
+                return redirect(url_for("dashboard"))
+
+            if not get_order(order_id):
+                flash("Order not found.", "danger")
+                return redirect(url_for("dashboard"))
+
+            seller_id_raw = request.form.get("seller_id") or ""
+            seller_id = None
+            if seller_id_raw:
+                try:
+                    seller_id = int(seller_id_raw)
+                except ValueError:
+                    seller_id = None
+
+            total_raw = _form_text("total_amount") or ""
+            total_value: Optional[float] = None
+            if total_raw:
+                try:
+                    total_value = float(total_raw)
+                except ValueError:
+                    flash("Order total must be numeric.", "warning")
+                    return redirect(url_for("dashboard"))
+
+            update_order(
+                order_id,
+                status=_form_text("status") or None,
+                total_amount=total_value,
+                notes=_form_text("notes") or None,
+                seller_id=seller_id,
+            )
+            flash("Order updated.", "success")
+            return redirect(url_for("dashboard"))
+
+        if action == "delete_order":
+            try:
+                order_id = int(request.form.get("order_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not resolve the order to delete.", "danger")
+            else:
+                delete_order(order_id)
+                flash("Order removed.", "info")
+            return redirect(url_for("dashboard"))
+
+        flash("Unknown admin action.", "warning")
+        return redirect(url_for("dashboard"))
+
+    customers = fetch_customers()
+    orders = fetch_orders()
+    sellers = fetch_sellers()
+    users = fetch_users()
 
     return render_template(
         "admin.html",
-        message=message,
-        error=error,
-        product_form=product_form,
-        products=products,
+        customers=customers,
+        orders=orders,
+        sellers=sellers,
         users=users,
-        product_filters=filters,
-        product_count=product_count,
+        status_choices=status_choices,
     )
 
 

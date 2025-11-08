@@ -5,7 +5,9 @@ from __future__ import annotations
 import math
 import random
 import re
-from typing import Dict, List, Mapping, Union, cast
+from pathlib import Path
+from typing import Dict, List, Mapping, Optional, Union, cast
+from uuid import uuid4
 
 from flask import (
     Flask,
@@ -20,24 +22,30 @@ from flask import (
 
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers import Response
+from werkzeug.utils import secure_filename
 
 from database import (
     create_user,
+    create_seller_profile,
+    delete_product,
     fetch_product_categories,
     fetch_product_reviews,
     fetch_products,
     fetch_products_by_ids,
+    fetch_recent_products_for_user,
     fetch_user_cart,
     get_product,
     get_product_rating_summary,
+    get_seller_by_user_id,
     get_user_by_id,
     get_user_by_username,
     get_user_review,
     init_db,
+    insert_product,
     replace_user_cart,
+    update_product,
     upsert_product_review,
     upsert_recent_product_view,
-    fetch_recent_products_for_user,
 )
 
 # Ensure the database and seed data exist before serving.
@@ -45,6 +53,61 @@ init_db()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "dev-secret-key-change-me"
+UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+
+def _allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+
+def _save_image(file_storage) -> Optional[str]:
+    """Persist an uploaded image with a unique name and return the relative path."""
+    if not file_storage or not file_storage.filename:
+        return None
+    filename = secure_filename(file_storage.filename)
+    if not filename or not _allowed_file(filename):
+        raise ValueError("Please upload a PNG, JPG, GIF, or WEBP image.")
+
+    extension = Path(filename).suffix
+    unique_name = f"{uuid4().hex}{extension}"
+    destination = UPLOAD_DIR / unique_name
+    file_storage.save(destination)
+    return f"uploads/{unique_name}"
+
+
+def _delete_image(path: Optional[str]) -> None:
+    if not path:
+        return
+    if not path.startswith("uploads/"):
+        return
+    file_path = Path(__file__).with_name("static").joinpath(path)
+    try:
+        file_path.unlink()
+    except FileNotFoundError:
+        return
+
+
+def _parse_numeric_fields(
+    price_raw: str,
+    inventory_raw: str,
+) -> tuple[Optional[float], Optional[int], Optional[str]]:
+    """Convert text fields into typed values while sharing validation messaging."""
+    try:
+        price_value = float(price_raw)
+        inventory_value = int(inventory_raw or 0)
+    except ValueError:
+        return None, None, "Price must be a number and inventory must be a whole number."
+    return price_value, inventory_value, None
+
+
+def _form_text(field_name: str, default: str = "") -> str:
+    """Trim whitespace from form submissions while providing a default."""
+    raw_value = request.form.get(field_name)
+    if raw_value is None:
+        return default
+    return raw_value.strip()
 
 
 def _current_user() -> Mapping[str, object] | None:
@@ -76,6 +139,15 @@ def _current_user_id() -> int | None:
     return int(cast(int, user["id"]))
 
 
+def _current_seller() -> Mapping[str, object] | None:
+    """Return the seller profile for the logged-in user, if any."""
+    user_id = _current_user_id()
+    if not user_id:
+        return None
+    seller = get_seller_by_user_id(user_id)
+    return seller
+
+
 def _get_cart() -> Dict[int, int]:
     """Return the active cart as an integer keyed mapping."""
     user_id = _current_user_id()
@@ -105,7 +177,11 @@ def inject_cart_meta() -> Dict[str, object]:
 
     current_user = _current_user()
 
-    return {"cart_item_count": total_items, "current_user": current_user}
+    return {
+        "cart_item_count": total_items,
+        "current_user": current_user,
+        "current_seller": _current_seller(),
+    }
 
 
 @app.route("/")
@@ -371,6 +447,163 @@ def product_detail(product_id: int) -> Union[str, Response]:
         rating_summary=rating_summary,
         reviews=reviews,
         user_review=user_review,
+    )
+
+
+@app.route("/seller/dashboard", methods=["GET", "POST"])
+def seller_dashboard() -> str | Response:
+    """Allow authenticated sellers to manage their slice of the catalogue."""
+    user_id = _current_user_id()
+    if not user_id:
+        flash("Sign in to access the seller tools.", "warning")
+        return redirect(url_for("login", next=url_for("seller_dashboard")))
+
+    seller = _current_seller()
+    create_form = {
+        "name": "",
+        "description": "",
+        "price": "",
+        "sku": "",
+        "inventory_count": "",
+        "category": "",
+    }
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "register_seller":
+            if seller:
+                flash("You're already registered as a seller.", "info")
+            else:
+                store_name = _form_text("store_name")
+                contact_email = _form_text("contact_email")
+                description = _form_text("description")
+                if not store_name:
+                    flash("Store name is required to register as a seller.", "warning")
+                else:
+                    create_seller_profile(
+                        user_id,
+                        store_name,
+                        description=description or None,
+                        contact_email=contact_email or None,
+                    )
+                    flash("Seller profile created. You can now add products.", "success")
+                    return redirect(url_for("seller_dashboard"))
+
+        elif action == "create_product":
+            if not seller:
+                flash("Create a seller profile before adding products.", "warning")
+                return redirect(url_for("seller_dashboard"))
+
+            create_form = {
+                "name": _form_text("name"),
+                "description": _form_text("description"),
+                "price": _form_text("price"),
+                "sku": _form_text("sku"),
+                "inventory_count": _form_text("inventory_count"),
+                "category": _form_text("category") or "General",
+            }
+
+            if not (create_form["name"] and create_form["description"] and create_form["price"]):
+                flash("Name, description, and price are required.", "warning")
+            else:
+                price_value, inventory_value, numeric_error = _parse_numeric_fields(
+                    create_form["price"], create_form["inventory_count"]
+                )
+                if numeric_error:
+                    flash(numeric_error, "warning")
+                else:
+                    try:
+                        image_path = _save_image(request.files.get("image"))
+                    except ValueError as exc:
+                        flash(str(exc), "warning")
+                    else:
+                        insert_product(
+                            create_form["name"],
+                            create_form["description"],
+                            price_value if price_value is not None else 0.0,
+                            sku=create_form["sku"] or None,
+                            inventory_count=inventory_value if inventory_value is not None else 0,
+                            image_path=image_path,
+                            category=create_form["category"] or "General",
+                            seller_id=int(cast(int, seller["id"])),
+                        )
+                        flash("Product added to your catalogue.", "success")
+                        return redirect(url_for("seller_dashboard"))
+
+        elif action in {"update_product", "delete_product"}:
+            if not seller:
+                flash("Create a seller profile before managing products.", "warning")
+                return redirect(url_for("seller_dashboard"))
+            try:
+                product_id = int(request.form.get("product_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not determine which product to update.", "danger")
+                return redirect(url_for("seller_dashboard"))
+
+            product = get_product(product_id)
+            seller_id = int(cast(int, seller["id"]))
+            if not product or int(product.get("seller_id") or 0) != seller_id:
+                flash("You can only manage products that belong to you.", "danger")
+                return redirect(url_for("seller_dashboard"))
+
+            if action == "delete_product":
+                _delete_image(cast(Optional[str], product.get("image_path")))
+                delete_product(product_id)
+                flash("Product removed.", "info")
+                return redirect(url_for("seller_dashboard"))
+
+            # Update flow
+            name = _form_text("name") or str(product["name"])
+            description = _form_text("description") or str(product["description"])
+            price_raw = _form_text("price") or f"{product['price']}"
+            sku = _form_text("sku") or cast(Optional[str], product.get("sku"))
+            inventory_raw = _form_text("inventory_count") or str(product["inventory_count"])
+            category_value = _form_text("category") or str(product.get("category", "General"))
+            price_value, inventory_value, numeric_error = _parse_numeric_fields(price_raw, inventory_raw)
+            if numeric_error:
+                flash(numeric_error, "warning")
+                return redirect(url_for("seller_dashboard"))
+
+            current_image = cast(Optional[str], product.get("image_path"))
+            try:
+                new_image = _save_image(request.files.get("image"))
+            except ValueError as exc:
+                flash(str(exc), "warning")
+                return redirect(url_for("seller_dashboard"))
+
+            image_path = current_image
+            if new_image:
+                if current_image and current_image != new_image:
+                    _delete_image(current_image)
+                image_path = new_image
+
+            update_product(
+                product_id,
+                name=name,
+                description=description,
+                price=price_value if price_value is not None else float(str(product["price"])),
+                sku=sku,
+                inventory_count=inventory_value if inventory_value is not None else int(str(product["inventory_count"])),
+                image_path=image_path,
+                category=category_value,
+            )
+            flash("Product updated.", "success")
+            return redirect(url_for("seller_dashboard"))
+
+        else:
+            flash("Unknown seller action.", "warning")
+
+    seller_refresh = _current_seller()
+    seller_products = []
+    if seller_refresh:
+        seller_products = list(fetch_products(seller_id=int(cast(int, seller_refresh["id"]))))
+
+    return render_template(
+        "seller_dashboard.html",
+        seller=seller_refresh,
+        create_form=create_form,
+        products=seller_products,
     )
 
 

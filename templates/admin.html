@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Gearloom</title>
+    <title>Admin Console - Gearloom</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
@@ -15,220 +15,274 @@
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
                 <span>Gearloom Admin</span>
             </a>
-            <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto align-items-center gap-2">
                 <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
+                {% if admin_user %}
+                    <span class="user-pill">{{ admin_user['username'] }}</span>
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                {% endif %}
             </div>
         </div>
     </nav>
 
     <main class="page-shell">
         <div class="container">
-            {% if message %}
-                <div class="alert alert-success mb-4">{{ message }}</div>
-            {% elif error %}
-                <div class="alert alert-danger mb-4">{{ error }}</div>
-            {% endif %}
+            {% with messages = get_flashed_messages(with_categories=True) %}
+                {% if messages %}
+                    <div class="flash-messages mb-4">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
             <div class="row grid-tight">
                 <div class="col-lg-5">
-                    <div class="admin-card mb-4 mb-lg-4">
-                        <h1 class="page-title fs-2">Add a new product</h1>
-                        <p class="text-muted mb-4">Inventory stays in sync with the public site, so updates here land instantly.</p>
-
-                        <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" novalidate class="admin-form" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="create_product">
+                    <div class="content-card mb-4">
+                        <div class="badge-soft mb-3 text-uppercase">Customers</div>
+                        <h1 class="page-title h3 mb-3">Add a customer</h1>
+                        <form method="post" class="admin-form">
+                            <input type="hidden" name="action" value="create_customer">
                             <div class="mb-3">
-                                <label for="name" class="form-label">Name</label>
-                                <input type="text" class="form-control" id="name" name="name" value="{{ product_form.name }}" required>
+                                <label class="form-label">First name</label>
+                                <input type="text" class="form-control" name="first_name" required>
                             </div>
                             <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="3" required>{{ product_form.description }}</textarea>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="price" class="form-label">Price</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="text" class="form-control" id="price" name="price" value="{{ product_form.price }}" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="inventory_count" class="form-label">Inventory</label>
-                                    <input type="text" class="form-control" id="inventory_count" name="inventory_count" value="{{ product_form.inventory_count }}">
-                                </div>
+                                <label class="form-label">Last name</label>
+                                <input type="text" class="form-control" name="last_name" required>
                             </div>
                             <div class="mb-3">
-                                <label for="sku" class="form-label">SKU (optional)</label>
-                                <input type="text" class="form-control" id="sku" name="sku" value="{{ product_form.sku }}">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" name="email" required>
                             </div>
                             <div class="mb-3">
-                                <label for="category" class="form-label">Category</label>
-                                <input type="text" class="form-control" id="category" name="category" value="{{ product_form.category }}" placeholder="e.g. Robotics">
+                                <label class="form-label">Company</label>
+                                <input type="text" class="form-control" name="company">
                             </div>
                             <div class="mb-4">
-                                <label for="image" class="form-label">Product image</label>
-                                <input type="file" class="form-control" id="image" name="image" accept="image/*">
-                                <div class="form-text">Transparent PNG or JPG, at least 600px on the shortest side.</div>
+                                <label class="form-label">Notes</label>
+                                <textarea class="form-control" name="notes" rows="2" placeholder="Preferred logistics, special handling..."></textarea>
                             </div>
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Save product</button>
+                                <button type="submit" class="btn btn-primary">Save customer</button>
                             </div>
                         </form>
                     </div>
 
-                </div>
-
-                <div class="col-lg-7">
-                    <div class="admin-card product-filter-card mb-4">
-                        <form method="get" class="admin-form filter-form">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-12 col-lg-5">
-                                    <label for="catalog-search" class="form-label">Search catalogue</label>
-                                    <input type="search" class="form-control" id="catalog-search" name="search" value="{{ product_filters.search }}" placeholder="Name, SKU, description">
-                                </div>
-                                <div class="col-12 col-sm-6 col-lg-3">
-                                    <label for="stock-filter" class="form-label">Stock</label>
-                                    <select class="form-select" id="stock-filter" name="stock">
-                                        <option value="all" {% if product_filters.stock == 'all' %}selected{% endif %}>All stock</option>
-                                        <option value="in" {% if product_filters.stock == 'in' %}selected{% endif %}>In stock</option>
-                                        <option value="low" {% if product_filters.stock == 'low' %}selected{% endif %}>Low stock &lt;= 10</option>
-                                        <option value="out" {% if product_filters.stock == 'out' %}selected{% endif %}>Out of stock</option>
-                                    </select>
-                                </div>
-                                <div class="col-12 col-sm-6 col-lg-3">
-                                    <label for="sort-filter" class="form-label">Sort by</label>
-                                    <select class="form-select" id="sort-filter" name="sort">
-                                        <option value="newest" {% if product_filters.sort == 'newest' %}selected{% endif %}>Newest</option>
-                                        <option value="oldest" {% if product_filters.sort == 'oldest' %}selected{% endif %}>Oldest</option>
-                                        <option value="name_az" {% if product_filters.sort == 'name_az' %}selected{% endif %}>Name A → Z</option>
-                                        <option value="name_za" {% if product_filters.sort == 'name_za' %}selected{% endif %}>Name Z → A</option>
-                                        <option value="price_low" {% if product_filters.sort == 'price_low' %}selected{% endif %}>Price low → high</option>
-                                        <option value="price_high" {% if product_filters.sort == 'price_high' %}selected{% endif %}>Price high → low</option>
-                                        <option value="inventory_low" {% if product_filters.sort == 'inventory_low' %}selected{% endif %}>Inventory low → high</option>
-                                        <option value="inventory_high" {% if product_filters.sort == 'inventory_high' %}selected{% endif %}>Inventory high → low</option>
-                                    </select>
-                                </div>
-                                <div class="col-12 col-sm-4 col-lg-1">
-                                    <button type="submit" class="btn btn-primary filter-apply-btn">Apply</button>
-                                </div>
-                            </div>
-                            <div class="filter-form-actions d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                                <p class="text-muted small mb-0">
-                                    {% if product_filters.has_active %}
-                                        Filters active. Showing {{ product_count }} result{% if product_count != 1 %}s{% endif %}.
-                                    {% else %}
-                                        Use filters to focus on specific SKUs.
-                                    {% endif %}
-                                </p>
-                                {% if product_filters.has_active %}
-                                    <a href="{{ url_for('dashboard') }}" class="btn btn-link filter-clear px-0">Clear filters</a>
-                                {% endif %}
-                            </div>
-                        </form>
-                    </div>
-                    <div class="admin-card">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                            <div>
-                                <h2 class="h4 mb-1">Manage products</h2>
-                                <p class="text-muted small mb-0">
-                                    Showing {{ product_count }} product{% if product_count != 1 %}s{% endif %}
-                                    {% if product_filters.has_active %} • Filters active{% endif %}
-                                </p>
-                            </div>
-                            <span class="pill">Live sync</span>
+                    <div class="content-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0">Customer directory</h2>
+                            <span class="pill">{{ customers|length }} on file</span>
                         </div>
-                        {% if products %}
-                            <div class="product-edit-list">
-                                {% for product in products %}
-                                    {% set image_src = product['image_path'] %}
-                                    <details class="product-admin-item">
-                                        <summary class="product-admin-summary">
-                                            <div>
-                                                <div class="summary-title">{{ product['name'] }}</div>
-                                                <div class="summary-meta">
-                                                    {% if product['category'] %}{{ product['category'] }} · {% endif %}{% if product['sku'] %}SKU {{ product['sku'] }} · {% endif %}ID {{ product['id'] }}
-                                                </div>
-                                            </div>
-                                            <div class="summary-price">${{ '%.2f'|format(product['price']) }}</div>
-                                            <div class="summary-stock">Stock {{ product['inventory_count'] }}</div>
-                                        </summary>
-                                        <div class="product-admin-body">
-                                            <form method="post" action="{{ url_for('dashboard', **product_filters.query_args) }}" enctype="multipart/form-data" class="admin-form product-edit-form">
-                                                <input type="hidden" name="product_id" value="{{ product['id'] }}">
-                                                <input type="hidden" name="current_image" value="{{ product['image_path'] or '' }}">
-                                                <div class="product-edit-top">
-                                                    {% if product['image_path'] %}
-                                                        <img src="{{ image_src if image_src.startswith('http') else url_for('static', filename=image_src) }}" alt="{{ product['name'] }} thumbnail" class="product-edit-image">
-                                                    {% else %}
-                                                        <div class="product-edit-image placeholder">No image</div>
-                                                    {% endif %}
-                                                    <div class="flex-grow-1">
-                                                        <label class="form-label">Name</label>
-                                                        <input type="text" class="form-control" name="name" value="{{ product['name'] }}" required>
+                        {% if customers %}
+                            {% for customer in customers %}
+                                <div class="product-banner">
+                                    <div class="banner-header">
+                                        <div>
+                                            <strong>{{ customer['first_name'] }} {{ customer['last_name'] }}</strong>
+                                            <span class="text-muted small d-block">{{ customer['email'] }}</span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="pill">{{ customer['company'] or 'Independent' }}</span>
+                                        </div>
+                                        <button class="banner-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#customer-{{ customer['id'] }}">
+                                            Manage
+                                        </button>
+                                    </div>
+                                    <div class="collapse" id="customer-{{ customer['id'] }}">
+                                        <div class="product-edit-card">
+                                            <form method="post">
+                                                <input type="hidden" name="customer_id" value="{{ customer['id'] }}">
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">First name</label>
+                                                        <input type="text" class="form-control" name="first_name" value="{{ customer['first_name'] }}">
                                                     </div>
-                                                    <div class="product-edit-price">
-                                                        <label class="form-label">Price</label>
-                                                        <div class="input-group">
-                                                            <span class="input-group-text">$</span>
-                                                            <input type="text" class="form-control" name="price" value="{{ '%.2f'|format(product['price']) }}" required>
-                                                        </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">Last name</label>
+                                                        <input type="text" class="form-control" name="last_name" value="{{ customer['last_name'] }}">
                                                     </div>
                                                 </div>
-                                                <div class="product-edit-grid">
-                                                    <div class="grid-span-2">
-                                                        <label class="form-label">Description</label>
-                                                        <textarea class="form-control" name="description" rows="3" required>{{ product['description'] }}</textarea>
-                                                    </div>
-                                                    <div>
-                                                        <label class="form-label">Inventory</label>
-                                                        <input type="text" class="form-control" name="inventory_count" value="{{ product['inventory_count'] }}">
-                                                    </div>
-                                                    <div>
-                                                        <label class="form-label">SKU</label>
-                                                        <input type="text" class="form-control" name="sku" value="{{ product['sku'] or '' }}">
-                                                    </div>
-                                                    <div>
-                                                        <label class="form-label">Category</label>
-                                                        <input type="text" class="form-control" name="category" value="{{ product['category'] }}">
-                                                    </div>
-                                                    <div class="grid-span-2">
-                                                        <label class="form-label">Replace image</label>
-                                                        <input type="file" class="form-control" name="image" accept="image/*">
-                                                        {% if product['image_path'] %}
-                                                            <div class="form-check mt-2">
-                                                                <input class="form-check-input" type="checkbox" name="remove_image" value="1" id="remove-image-{{ product['id'] }}">
-                                                                <label class="form-check-label small text-muted" for="remove-image-{{ product['id'] }}">Remove current image</label>
-                                                            </div>
-                                                        {% endif %}
-                                                    </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Email</label>
+                                                    <input type="email" class="form-control" name="email" value="{{ customer['email'] }}">
                                                 </div>
-                                                <div class="product-edit-actions">
-                                                    <button type="submit" name="action" value="edit_product" class="btn btn-primary btn-sm">Update product</button>
-                                                    <button type="submit" name="action" value="delete_product" class="btn btn-link text-danger px-0">Delete</button>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Company</label>
+                                                    <input type="text" class="form-control" name="company" value="{{ customer['company'] or '' }}">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Notes</label>
+                                                    <textarea class="form-control" name="notes" rows="2">{{ customer['notes'] or '' }}</textarea>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <button type="submit" class="btn btn-primary btn-sm" name="action" value="update_customer">Update</button>
+                                                    <button type="submit" class="btn btn-link text-danger px-0" name="action" value="delete_customer">Delete</button>
                                                 </div>
                                             </form>
                                         </div>
-                                    </details>
-                                {% endfor %}
-                            </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
                         {% else %}
                             <div class="empty-state">
-                                {% if product_filters.has_active %}
-                                    <strong>No products match your filters</strong>
-                                    Adjust or clear the filters to surface additional inventory.
-                                {% else %}
-                                    <strong>No products yet</strong>
-                                    Add your first product to see real-time inventory here.
-                                {% endif %}
+                                <strong>No customers yet.</strong>
+                                Start by adding a customer profile above.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="content-card mb-4">
+                        <div class="badge-soft mb-3 text-uppercase">Orders</div>
+                        <h2 class="h4 mb-3">Record an order</h2>
+                        {% if customers %}
+                            <form method="post">
+                                <input type="hidden" name="action" value="create_order">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Customer</label>
+                                        <select class="form-select" name="customer_id" required>
+                                            <option value="">Select customer</option>
+                                            {% for customer in customers %}
+                                                <option value="{{ customer['id'] }}">{{ customer['first_name'] }} {{ customer['last_name'] }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Seller (optional)</label>
+                                        <select class="form-select" name="seller_id">
+                                            <option value="">Unassigned</option>
+                                            {% for seller in sellers %}
+                                                <option value="{{ seller['id'] }}">{{ seller['store_name'] }} ({{ seller['username'] }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select" name="status">
+                                            {% for status in status_choices %}
+                                                <option value="{{ status }}">{{ status|title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Total</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="text" class="form-control" name="total_amount" value="0.00">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Created</label>
+                                        <input type="text" class="form-control" value="Now" disabled>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Notes</label>
+                                    <textarea class="form-control" name="notes" rows="2" placeholder="Shipping window, payment terms..."></textarea>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">Add order</button>
+                                </div>
+                            </form>
+                        {% else %}
+                            <div class="empty-state">
+                                <strong>Add a customer first.</strong>
+                                Once a customer exists you can start logging orders.
                             </div>
                         {% endif %}
                     </div>
 
-                    <div class="admin-card mt-4">
+                    <div class="content-card">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h4 mb-0">Account directory</h2>
-                            <span class="pill">{{ users|length }} active</span>
+                            <h2 class="h5 mb-0">Recent orders</h2>
+                            <span class="pill">{{ orders|length }} tracked</span>
+                        </div>
+                        {% if orders %}
+                            {% for order in orders %}
+                                <div class="product-banner">
+                                    <div class="banner-header">
+                                        <div>
+                                            <strong>Order #{{ order['id'] }}</strong>
+                                            <span class="text-muted small d-block">
+                                                {{ order['customer_name'] }} &middot; {{ order['customer_email'] }}
+                                            </span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="pill text-uppercase">{{ order['status'] }}</span>
+                                            <div class="fw-semibold">${{ '%.2f'|format(order['total_amount']) }}</div>
+                                        </div>
+                                        <button class="banner-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#order-{{ order['id'] }}">
+                                            Manage
+                                        </button>
+                                    </div>
+                                    <div class="collapse" id="order-{{ order['id'] }}">
+                                        <div class="product-edit-card">
+                                            <form method="post">
+                                                <input type="hidden" name="order_id" value="{{ order['id'] }}">
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">Status</label>
+                                                        <select class="form-select" name="status">
+                                                            {% for status in status_choices %}
+                                                                <option value="{{ status }}" {% if order['status'] == status %}selected{% endif %}>{{ status|title }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">Seller</label>
+                                                        <select class="form-select" name="seller_id">
+                                                            <option value="" {% if not order['seller_id'] %}selected{% endif %}>Unassigned</option>
+                                                            {% for seller in sellers %}
+                                                                <option value="{{ seller['id'] }}" {% if order['seller_id'] == seller['id'] %}selected{% endif %}>
+                                                                    {{ seller['store_name'] }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">Total amount</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">$</span>
+                                                            <input type="text" class="form-control" name="total_amount" value="{{ order['total_amount'] }}">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <label class="form-label">Created</label>
+                                                        <input type="text" class="form-control" value="{{ order['created_at'] }}" disabled>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Notes</label>
+                                                    <textarea class="form-control" name="notes" rows="2">{{ order['notes'] or '' }}</textarea>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <button type="submit" class="btn btn-primary btn-sm" name="action" value="update_order">Update</button>
+                                                    <button type="submit" class="btn btn-link text-danger px-0" name="action" value="delete_order">Delete</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <strong>No orders recorded.</strong>
+                                As soon as sellers fulfill baskets, log them here for ops visibility.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="content-card mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0">User directory</h2>
+                            <span class="pill">{{ users|length }} accounts</span>
                         </div>
                         {% if users %}
                             <div class="admin-table table-responsive">
@@ -236,13 +290,24 @@
                                     <thead>
                                         <tr>
                                             <th scope="col">Username</th>
-                                            <th scope="col" class="text-muted">Joined</th>
+                                            <th scope="col">Roles</th>
+                                            <th scope="col">Joined</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for user in users %}
                                             <tr>
                                                 <td class="fw-semibold">{{ user['username'] }}</td>
+                                                <td class="text-muted">
+                                                    {% set roles = [] %}
+                                                    {% if user['is_admin'] %}{% set _ = roles.append('Admin') %}{% endif %}
+                                                    {% if user['is_seller'] %}{% set _ = roles.append('Seller') %}{% endif %}
+                                                    {% if roles %}
+                                                        {{ roles|join(', ') }}
+                                                    {% else %}
+                                                        Customer
+                                                    {% endif %}
+                                                </td>
                                                 <td class="text-muted">{{ user['created_at'] }}</td>
                                             </tr>
                                         {% endfor %}
@@ -251,7 +316,7 @@
                             </div>
                         {% else %}
                             <div class="empty-state">
-                                <strong>No user accounts yet</strong>
+                                <strong>No user accounts yet.</strong>
                                 Accounts created through the storefront will appear here instantly.
                             </div>
                         {% endif %}
