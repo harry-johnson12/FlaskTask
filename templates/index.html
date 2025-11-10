@@ -16,10 +16,10 @@
             <section class="landing-grid">
                 <article class="landing-left hero-card hero-card-home text-center text-lg-start">
                     <div class="mb-4">
-                        <div class="badge-soft mb-3">Gearloom Supply</div>
-                        <h1 class="page-title">Blueprint-to-basket hardware for ambitious teams.</h1>
+                        <div class="badge-soft mb-3">{{ hero_content.badge }}</div>
+                        <h1 class="page-title">{{ hero_content.title }}</h1>
                         <p class="page-subtitle">
-                            Gearloom curates mission-critical electronics — spanning robotics brains, edge AI, energy resilience, and lab tooling — so the upcoming AI build assistant can turn project briefs into ready-to-order kits.
+                            {{ hero_content.subtitle }}
                         </p>
                     </div>
                     <div class="d-flex flex-column flex-sm-row gap-3 hero-actions">
@@ -38,20 +38,6 @@
                         <div class="mini-stat">
                             <span class="mini-stat-label">Avg. dispatch time</span>
                             <strong>18 hrs</strong>
-                        </div>
-                    </div>
-
-                    <div class="content-card home-focus">
-                        <h5 class="text-uppercase text-muted mb-3">Shop by focus</h5>
-                        <ul class="hero-tags mb-3">
-                            <li><a href="{{ url_for('products', search='robotics') }}">Robotics control</a></li>
-                            <li><a href="{{ url_for('products', search='ai') }}">Edge AI modules</a></li>
-                            <li><a href="{{ url_for('products', search='power') }}">Power & energy</a></li>
-                            <li><a href="{{ url_for('products', search='sensor') }}">Sensor arrays</a></li>
-                        </ul>
-                        <div class="hero-snapshot mb-0">
-                            <strong>Lab dispatch:</strong>
-                            <span>AtlasEdge Robotics Control Kit cleared the multi-actuator stress bench and is queued for AI basket pilots.</span>
                         </div>
                     </div>
 
@@ -99,66 +85,27 @@
 
                 <div class="landing-right">
                     <div class="content-card highlight-card home-highlight">
-                        <h5 class="text-uppercase text-muted mb-3">Lab notebook</h5>
+                        <h5 class="text-uppercase text-muted mb-3">{{ lab_notebook_content.title }}</h5>
                         <p class="mb-4 text-muted">
-                            Quick pairings from this week’s validation runs. Each stack ships with wiring diagrams and BOM references so you can go from cart to rig without rewrites.
+                            {{ lab_notebook_content.intro }}
                         </p>
                         <ul class="coach-card-list mb-4">
-                            <li>
-                                <span class="coach-icon">1</span>
-                                <div>
-                                    <strong>Autonomous Field Unit</strong>
-                                    <p class="text-muted mb-0">AtlasEdge Robotics Control Kit + TrackSense UWB anchors keep multi-robot teams located within centimetres.</p>
-                                </div>
-                            </li>
-                            <li>
-                                <span class="coach-icon">2</span>
-                                <div>
-                                    <strong>Off-grid Lab</strong>
-                                    <p class="text-muted mb-0">VoltStack Power Deck paired with LumenWave Solar kit powers pop-up build stations and remote labs.</p>
-                                </div>
-                            </li>
-                            <li>
-                                <span class="coach-icon">3</span>
-                                <div>
-                                    <strong>Immersive Studio</strong>
-                                    <p class="text-muted mb-0">SymphonyIQ Interface plus BioFlux Wearable sync spatial audio experiments with live biometrics.</p>
-                                </div>
-                            </li>
+                            {% for entry in lab_notebook_content.entries %}
+                                <li>
+                                    <span class="coach-icon">{{ loop.index }}</span>
+                                    <div>
+                                        <strong>{{ entry.headline }}</strong>
+                                        <p class="text-muted mb-0">{{ entry.body }}</p>
+                                    </div>
+                                </li>
+                            {% endfor %}
                         </ul>
                         <div class="avatar-row">
                             <span class="avatar-dot"></span>
                             <span class="avatar-dot"></span>
                             <span class="avatar-dot"></span>
-                            <span class="text-muted">Trusted by labs & makerspaces worldwide</span>
+                            <span class="text-muted">{{ lab_notebook_content.footer_text }}</span>
                         </div>
-                    </div>
-
-                    <div class="content-card home-updates">
-                        <h5 class="text-uppercase text-muted mb-3">Quick stats</h5>
-                        <ul class="home-updates-list">
-                            <li>
-                                <div>
-                                    <strong>Lead time</strong>
-                                    <span class="text-muted small d-block">Orders processing in under 20 hrs</span>
-                                </div>
-                                <span class="pill">Logistics</span>
-                            </li>
-                            <li>
-                                <div>
-                                    <strong>Returns</strong>
-                                    <span class="text-muted small d-block">0.6% devices flagged last quarter</span>
-                                </div>
-                                <span class="pill">QA</span>
-                            </li>
-                            <li>
-                                <div>
-                                    <strong>Community</strong>
-                                    <span class="text-muted small d-block">3.2k engineers in monthly sync</span>
-                                </div>
-                                <span class="pill">Support</span>
-                            </li>
-                        </ul>
                     </div>
 
                     <div class="landing-right-products">

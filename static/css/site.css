@@ -149,7 +149,7 @@ code {
 }
 
 .page-shell {
-    padding: clamp(2.8rem, 6vw, 5.2rem) 0 clamp(3.2rem, 8vw, 6rem);
+    padding: clamp(2rem, 5vw, 3.6rem) 0 clamp(2.2rem, 6vw, 4.2rem);
 }
 
 .hero-card,
@@ -437,104 +437,26 @@ code {
 .landing-right {
     display: flex;
     flex-direction: column;
-    gap: clamp(1.2rem, 3vw, 1.8rem);
-    min-height: 100%;
-}
-
-.landing-right {
-    justify-content: space-between;
+    gap: clamp(1rem, 2.5vw, 1.4rem);
 }
 
 .landing-left-products,
 .landing-right-products {
     display: grid;
-    gap: clamp(1.2rem, 3vw, 1.6rem);
-}
-
-.landing-left-products {
-    margin-top: auto;
-}
-
-.landing-right-products {
-    margin-top: 0;
+    gap: clamp(1rem, 2.5vw, 1.4rem);
+    margin-top: clamp(1rem, 2.5vw, 1.4rem);
 }
 
 .home-highlight,
-.home-focus,
 .home-featured-card,
-.home-featured-empty,
-.home-updates {
+.home-featured-empty {
     width: 100%;
-}
-
-.home-updates {
-    display: grid;
-    gap: 0.9rem;
-}
-
-.home-updates-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.8rem;
-}
-
-.home-updates-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-soft);
-}
-
-.home-updates-list li:last-child {
-    border-bottom: none;
-}
-
-.home-updates-list .pill {
-    background: rgba(15, 98, 254, 0.08);
-    border-color: rgba(15, 98, 254, 0.22);
 }
 
 @media (min-width: 992px) {
     .landing-grid {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     }
-}
-
-.hero-tags {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-}
-
-.hero-tags a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.85rem;
-    padding: 0.45rem 0.9rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-strong);
-    background: rgba(0, 0, 0, 0.02);
-}
-
-.hero-tags a::before {
-    content: "▸";
-    font-size: 0.75rem;
-    color: var(--accent);
-}
-
-.hero-snapshot {
-    display: grid;
-    gap: 0.25rem;
-    font-size: 0.9rem;
-    color: var(--ink-secondary);
 }
 
 .highlight-card {

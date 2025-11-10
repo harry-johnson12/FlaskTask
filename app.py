@@ -57,6 +57,98 @@ UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
+HERO_VARIANTS: List[Dict[str, str]] = [
+    {
+        "badge": "Gearloom Supply",
+        "title": "Blueprint-to-basket hardware for ambitious teams.",
+        "subtitle": (
+            "Gearloom curates mission-critical electronics — spanning robotics brains, edge AI, energy resilience, "
+            "and lab tooling — so the upcoming AI build assistant can turn project briefs into ready-to-order kits."
+        ),
+    },
+    {
+        "badge": "Field-ready supply",
+        "title": "Flight-qualified compute and power blocks without lead-time roulette.",
+        "subtitle": (
+            "Tap stocked edge brains, calibrated sensor clusters, and battery-safe power planes that ship after "
+            "signal-integrity and thermal sweeps."
+        ),
+    },
+    {
+        "badge": "Gearloom Supply",
+        "title": "Prototype faster with a supply chain that speaks schematics.",
+        "subtitle": (
+            "We pre-bundle controllers, firmware notes, and harness plans so your lab can jump from CAD to cart with "
+            "zero spreadsheet archaeology."
+        ),
+    },
+]
+
+LAB_NOTEBOOK_VARIANTS: List[Dict[str, object]] = [
+    {
+        "title": "Lab notebook",
+        "intro": (
+            "Quick pairings from this week’s validation runs. Each stack ships with wiring diagrams and BOM references "
+            "so you can go from cart to rig without rewrites."
+        ),
+        "entries": [
+            {
+                "headline": "Autonomous Field Unit",
+                "body": "AtlasEdge Robotics Control Kit + TrackSense UWB anchors keep multi-robot teams located within centimetres.",
+            },
+            {
+                "headline": "Off-grid Lab",
+                "body": "VoltStack Power Deck paired with LumenWave Solar kit powers pop-up build stations and remote labs.",
+            },
+            {
+                "headline": "Immersive Studio",
+                "body": "SymphonyIQ Interface plus BioFlux Wearable sync spatial audio experiments with live biometrics.",
+            },
+        ],
+        "footer_text": "Trusted by labs & makerspaces worldwide",
+    },
+    {
+        "title": "Lab notebook",
+        "intro": (
+            "Stacks our field team certified during thermal, vibration, and salt-fog passes. Drop-in notes ship with each kit."
+        ),
+        "entries": [
+            {
+                "headline": "Cloudless Rover Rig",
+                "body": "NovaDrive brain + TrackSense 6DoF stack pilots remote rovers without uplink anxiety.",
+            },
+            {
+                "headline": "Deepfreeze Pod",
+                "body": "CryoSafe harness plus Helios inverter kit keeps cryo storage stable off 48V microgrids.",
+            },
+            {
+                "headline": "BioTelemetry Bench",
+                "body": "PulseMesh gateway with LumenWear sensors streams ICU-grade vitals straight to lab dashboards.",
+            },
+        ],
+        "footer_text": "Runbooks shared with 140+ partner facilities",
+    },
+    {
+        "title": "Lab notebook",
+        "intro": "Most requested build sheets from community drops. Each includes impedance maps and config files.",
+        "entries": [
+            {
+                "headline": "Aerial Ops Stack",
+                "body": "Skyforge flight computer + FluxWing ESC kit keeps UAV fleets synced through gusty corridors.",
+            },
+            {
+                "headline": "Factory Twin Cart",
+                "body": "Tactum PLC brain with PrismEdge vision rail mirrors production cells for digital twin testing.",
+            },
+            {
+                "headline": "Bioreactor Guardian",
+                "body": "FermaSense probe kit and VentraFlow valves regulate pressure, pH, and nutrient dosing automatically.",
+            },
+        ],
+        "footer_text": "Shared daily in the partner flight log",
+    },
+]
+
 
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
@@ -195,11 +287,16 @@ def index() -> str:
     left_products = featured_products[:left_count]
     right_products = featured_products[left_count:]
 
+    hero_content = random.choice(HERO_VARIANTS)
+    lab_notebook_content = random.choice(LAB_NOTEBOOK_VARIANTS)
+
     return render_template(
         "index.html",
         featured_products=featured_products,
         left_products=left_products,
         right_products=right_products,
+        hero_content=hero_content,
+        lab_notebook_content=lab_notebook_content,
     )
 
 
