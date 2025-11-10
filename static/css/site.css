@@ -441,11 +441,22 @@ code {
     min-height: 100%;
 }
 
+.landing-right {
+    justify-content: space-between;
+}
+
 .landing-left-products,
 .landing-right-products {
     display: grid;
     gap: clamp(1.2rem, 3vw, 1.6rem);
+}
+
+.landing-left-products {
     margin-top: auto;
+}
+
+.landing-right-products {
+    margin-top: 0;
 }
 
 .home-highlight,
