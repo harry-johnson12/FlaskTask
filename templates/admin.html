@@ -38,286 +38,112 @@
             {% endwith %}
 
             <div class="row grid-tight">
-                <div class="col-lg-5">
+                <div class="col-12 col-xl-6">
                     <div class="content-card mb-4">
-                        <div class="badge-soft mb-3 text-uppercase">Customers</div>
-                        <h1 class="page-title h3 mb-3">Add a customer</h1>
+                        <div class="badge-soft mb-3 text-uppercase">Users</div>
+                        <h1 class="page-title h3 mb-3">Add a user account</h1>
                         <form method="post" class="admin-form">
-                            <input type="hidden" name="action" value="create_customer">
+                            <input type="hidden" name="action" value="create_user_account">
                             <div class="mb-3">
-                                <label class="form-label">First name</label>
-                                <input type="text" class="form-control" name="first_name" required>
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" name="username" required>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Last name</label>
-                                <input type="text" class="form-control" name="last_name" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" name="email" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Company</label>
-                                <input type="text" class="form-control" name="company">
-                            </div>
-                            <div class="mb-4">
-                                <label class="form-label">Notes</label>
-                                <textarea class="form-control" name="notes" rows="2" placeholder="Preferred logistics, special handling..."></textarea>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Password</label>
+                                    <input type="password" class="form-control" name="password" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Confirm password</label>
+                                    <input type="password" class="form-control" name="password_confirm" required>
+                                </div>
                             </div>
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Save customer</button>
+                                <button type="submit" class="btn btn-primary">Create user</button>
                             </div>
                         </form>
                     </div>
-
-                    <div class="content-card">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 mb-0">Customer directory</h2>
-                            <span class="pill">{{ customers|length }} on file</span>
-                        </div>
-                        {% if customers %}
-                            {% for customer in customers %}
-                                <div class="product-banner">
-                                    <div class="banner-header">
-                                        <div>
-                                            <strong>{{ customer['first_name'] }} {{ customer['last_name'] }}</strong>
-                                            <span class="text-muted small d-block">{{ customer['email'] }}</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <span class="pill">{{ customer['company'] or 'Independent' }}</span>
-                                        </div>
-                                        <button class="banner-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#customer-{{ customer['id'] }}">
-                                            Manage
-                                        </button>
-                                    </div>
-                                    <div class="collapse" id="customer-{{ customer['id'] }}">
-                                        <div class="product-edit-card">
-                                            <form method="post">
-                                                <input type="hidden" name="customer_id" value="{{ customer['id'] }}">
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">First name</label>
-                                                        <input type="text" class="form-control" name="first_name" value="{{ customer['first_name'] }}">
-                                                    </div>
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Last name</label>
-                                                        <input type="text" class="form-control" name="last_name" value="{{ customer['last_name'] }}">
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Email</label>
-                                                    <input type="email" class="form-control" name="email" value="{{ customer['email'] }}">
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Company</label>
-                                                    <input type="text" class="form-control" name="company" value="{{ customer['company'] or '' }}">
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Notes</label>
-                                                    <textarea class="form-control" name="notes" rows="2">{{ customer['notes'] or '' }}</textarea>
-                                                </div>
-                                                <div class="d-flex justify-content-between">
-                                                    <button type="submit" class="btn btn-primary btn-sm" name="action" value="update_customer">Update</button>
-                                                    <button type="submit" class="btn btn-link text-danger px-0" name="action" value="delete_customer">Delete</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="empty-state">
-                                <strong>No customers yet.</strong>
-                                Start by adding a customer profile above.
-                            </div>
-                        {% endif %}
-                    </div>
                 </div>
-                <div class="col-lg-7">
-                    <div class="content-card mb-4">
-                        <div class="badge-soft mb-3 text-uppercase">Orders</div>
-                        <h2 class="h4 mb-3">Record an order</h2>
-                        {% if customers %}
-                            <form method="post">
-                                <input type="hidden" name="action" value="create_order">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Customer</label>
-                                        <select class="form-select" name="customer_id" required>
-                                            <option value="">Select customer</option>
-                                            {% for customer in customers %}
-                                                <option value="{{ customer['id'] }}">{{ customer['first_name'] }} {{ customer['last_name'] }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Seller (optional)</label>
-                                        <select class="form-select" name="seller_id">
-                                            <option value="">Unassigned</option>
-                                            {% for seller in sellers %}
-                                                <option value="{{ seller['id'] }}">{{ seller['store_name'] }} ({{ seller['username'] }})</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label">Status</label>
-                                        <select class="form-select" name="status">
-                                            {% for status in status_choices %}
-                                                <option value="{{ status }}">{{ status|title }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label">Total</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="text" class="form-control" name="total_amount" value="0.00">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label">Created</label>
-                                        <input type="text" class="form-control" value="Now" disabled>
-                                    </div>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="form-label">Notes</label>
-                                    <textarea class="form-control" name="notes" rows="2" placeholder="Shipping window, payment terms..."></textarea>
-                                </div>
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">Add order</button>
-                                </div>
-                            </form>
-                        {% else %}
-                            <div class="empty-state">
-                                <strong>Add a customer first.</strong>
-                                Once a customer exists you can start logging orders.
-                            </div>
-                        {% endif %}
-                    </div>
 
-                    <div class="content-card">
+                <div class="col-12">
+                    <div class="content-card mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h2 class="h5 mb-0">Recent orders</h2>
-                            <span class="pill">{{ orders|length }} tracked</span>
+                            <span class="pill">Not yet available</span>
                         </div>
-                        {% if orders %}
-                            {% for order in orders %}
-                                <div class="product-banner">
-                                    <div class="banner-header">
+                        <div class="empty-state">
+                            <strong>Order tracking is coming soon.</strong>
+                            This area will populate once manual order logging ships.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row grid-tight mt-4">
+                <div class="col-12">
+                    <div class="content-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0">User directory</h2>
+                            <span class="pill">{{ user_cards|length }} accounts</span>
+                        </div>
+                        {% if user_cards %}
+                            {% for card in user_cards %}
+                                {% set user = card.user %}
+                                {% set seller = card.seller %}
+                                <details class="product-banner">
+                                    <summary class="banner-header">
                                         <div>
-                                            <strong>Order #{{ order['id'] }}</strong>
+                                            <strong>{{ user['username'] }}</strong>
                                             <span class="text-muted small d-block">
-                                                {{ order['customer_name'] }} &middot; {{ order['customer_email'] }}
+                                                Joined {{ user['created_at'] }} ·
+                                                {% set roles = [] %}
+                                                {% if user['is_admin'] %}{% set _ = roles.append('Admin') %}{% endif %}
+                                                {% if user['is_seller'] %}{% set _ = roles.append('Seller') %}{% endif %}
+                                                {{ roles|join(', ') if roles else 'Customer' }}
                                             </span>
                                         </div>
-                                        <div class="text-end">
-                                            <span class="pill text-uppercase">{{ order['status'] }}</span>
-                                            <div class="fw-semibold">${{ '%.2f'|format(order['total_amount']) }}</div>
-                                        </div>
-                                        <button class="banner-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#order-{{ order['id'] }}">
-                                            Manage
-                                        </button>
-                                    </div>
-                                    <div class="collapse" id="order-{{ order['id'] }}">
-                                        <div class="product-edit-card">
-                                            <form method="post">
-                                                <input type="hidden" name="order_id" value="{{ order['id'] }}">
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Status</label>
-                                                        <select class="form-select" name="status">
-                                                            {% for status in status_choices %}
-                                                                <option value="{{ status }}" {% if order['status'] == status %}selected{% endif %}>{{ status|title }}</option>
-                                                            {% endfor %}
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Seller</label>
-                                                        <select class="form-select" name="seller_id">
-                                                            <option value="" {% if not order['seller_id'] %}selected{% endif %}>Unassigned</option>
-                                                            {% for seller in sellers %}
-                                                                <option value="{{ seller['id'] }}" {% if order['seller_id'] == seller['id'] %}selected{% endif %}>
-                                                                    {{ seller['store_name'] }}
-                                                                </option>
-                                                            {% endfor %}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Total amount</label>
-                                                        <div class="input-group">
-                                                            <span class="input-group-text">$</span>
-                                                            <input type="text" class="form-control" name="total_amount" value="{{ order['total_amount'] }}">
+                                        <span class="text-muted small">Tap to manage</span>
+                                    </summary>
+                                    <div class="product-edit-card">
+                                        <form method="post" class="d-flex justify-content-between align-items-center mb-3" onsubmit="return confirm('Delete this user account?');">
+                                            <input type="hidden" name="action" value="delete_user">
+                                            <input type="hidden" name="user_id" value="{{ user['id'] }}">
+                                            <span class="text-muted small">Remove this user and any associated seller data.</span>
+                                            <button type="submit" class="btn btn-link text-danger px-0">Delete user</button>
+                                        </form>
+                                        {% if seller %}
+                                            <div class="mb-3">
+                                                <strong>{{ seller['store_name'] }}</strong>
+                                                <p class="text-muted small mb-1">{{ seller['description'] or 'No description provided.' }}</p>
+                                                <p class="text-muted small mb-0">Contact: {{ seller['contact_email'] or 'N/A' }}</p>
+                                            </div>
+                                            {% if card.products %}
+                                                <div class="seller-products">
+                                                    {% for product in card.products %}
+                                                        <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2 mb-2">
+                                                            <div class="me-3">
+                                                                <div class="fw-semibold">{{ product['name'] }}</div>
+                                                                <div class="text-muted small">
+                                                                    {{ product['category'] }}{% if product['sku'] %} · SKU {{ product['sku'] }}{% endif %}
+                                                                </div>
+                                                            </div>
+                                                            <form method="post" onsubmit="return confirm('Delete this product?');">
+                                                                <input type="hidden" name="action" value="delete_product">
+                                                                <input type="hidden" name="product_id" value="{{ product['id'] }}">
+                                                                <button type="submit" class="btn btn-link text-danger px-0">Remove</button>
+                                                            </form>
                                                         </div>
-                                                    </div>
-                                                    <div class="col-md-6 mb-3">
-                                                        <label class="form-label">Created</label>
-                                                        <input type="text" class="form-control" value="{{ order['created_at'] }}" disabled>
-                                                    </div>
+                                                    {% endfor %}
                                                 </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Notes</label>
-                                                    <textarea class="form-control" name="notes" rows="2">{{ order['notes'] or '' }}</textarea>
-                                                </div>
-                                                <div class="d-flex justify-content-between">
-                                                    <button type="submit" class="btn btn-primary btn-sm" name="action" value="update_order">Update</button>
-                                                    <button type="submit" class="btn btn-link text-danger px-0" name="action" value="delete_order">Delete</button>
-                                                </div>
-                                            </form>
-                                        </div>
+                                            {% endif %}
+                                        {% endif %}
                                     </div>
-                                </div>
+                                </details>
                             {% endfor %}
                         {% else %}
                             <div class="empty-state">
-                                <strong>No orders recorded.</strong>
-                                As soon as sellers fulfill baskets, log them here for ops visibility.
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="content-card mt-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 mb-0">User directory</h2>
-                            <span class="pill">{{ users|length }} accounts</span>
-                        </div>
-                        {% if users %}
-                            <div class="admin-table table-responsive">
-                                <table class="table align-middle mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col">Username</th>
-                                            <th scope="col">Roles</th>
-                                            <th scope="col">Joined</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for user in users %}
-                                            <tr>
-                                                <td class="fw-semibold">{{ user['username'] }}</td>
-                                                <td class="text-muted">
-                                                    {% set roles = [] %}
-                                                    {% if user['is_admin'] %}{% set _ = roles.append('Admin') %}{% endif %}
-                                                    {% if user['is_seller'] %}{% set _ = roles.append('Seller') %}{% endif %}
-                                                    {% if roles %}
-                                                        {{ roles|join(', ') }}
-                                                    {% else %}
-                                                        Customer
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-muted">{{ user['created_at'] }}</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <div class="empty-state">
-                                <strong>No user accounts yet.</strong>
-                                Accounts created through the storefront will appear here instantly.
+                                <strong>No users yet.</strong>
+                                Create an account above to populate this list.
                             </div>
                         {% endif %}
                     </div>
