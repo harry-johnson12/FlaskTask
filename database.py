@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Iterable, Iterator, Mapping, Optional
 
+from seed_data.product_catalog import PRODUCT_CATALOG
+
 # Store the database alongside the app for easy access.
 DB_PATH = Path(__file__).with_name("store.db")
 
@@ -44,6 +46,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                brand TEXT NOT NULL DEFAULT '',
                 description TEXT NOT NULL,
                 price REAL NOT NULL,
                 sku TEXT UNIQUE,
@@ -137,6 +140,8 @@ def insert_product(
     name: str,
     description: str,
     price: float,
+    *,
+    brand: str = "",
     sku: Optional[str] = None,
     inventory_count: int = 0,
     image_path: Optional[str] = None,
@@ -147,10 +152,10 @@ def insert_product(
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO products (name, description, price, sku, inventory_count, image_path, category, seller_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO products (name, brand, description, price, sku, inventory_count, image_path, category, seller_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (name, description, price, sku, inventory_count, image_path, category, seller_id),
+            (name, brand, description, price, sku, inventory_count, image_path, category, seller_id),
         )
 
 
@@ -169,9 +174,9 @@ def fetch_products(
     if search:
         like_term = f"%{search.lower()}%"
         conditions.append(
-            "(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(COALESCE(sku, '')) LIKE ?)"
+            "(LOWER(name) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ? OR LOWER(COALESCE(sku, '')) LIKE ?)"
         )
-        params.extend([like_term, like_term, like_term])
+        params.extend([like_term, like_term, like_term, like_term])
 
     stock_map = {
         "in": "inventory_count > 0",
@@ -214,6 +219,7 @@ def fetch_products(
             SELECT
                 products.id,
                 products.name,
+                products.brand,
                 products.description,
                 products.price,
                 products.sku,
@@ -264,6 +270,7 @@ def fetch_products_by_ids(product_ids: Iterable[int]) -> list[Mapping[str, objec
             SELECT
                 products.id,
                 products.name,
+                products.brand,
                 products.description,
                 products.price,
                 products.sku,
@@ -681,256 +688,11 @@ def delete_product(product_id: int) -> None:
 
 
 def seed_data() -> None:
-    """Populate a modern electronics-focused catalogue so the UI has content."""
-    samples = [
-        {
-            "name": "PulseLink HDMI 2.1 Cable 2m",
-            "description": "Certified Ultra High Speed cable engineered for 4K120 and 8K displays with dynamic HDR.",
-            "price": 22.0,
-            "sku": "GL-CBL-HD21",
-            "inventory": 72,
-            "image_path": "img/products/pulselink-hdmi.svg",
-            "category": "Connectivity",
-        },
-        {
-            "name": "NanoMesh Dupont Jumper Set (120 pack)",
-            "description": "Pre-crimped male and female Dupont jumpers in colour-coded harnesses for rapid prototyping.",
-            "price": 14.5,
-            "sku": "GL-JMP-120",
-            "inventory": 180,
-            "image_path": "img/products/nanomesh-jumpers.svg",
-            "category": "Prototyping",
-        },
-        {
-            "name": "VectorForge ATX Motherboard X790",
-            "description": "Performance ATX board with DDR5 support, triple NVMe slots, and integrated Wi-Fi 7.",
-            "price": 329.0,
-            "sku": "GL-MBD-X790",
-            "inventory": 26,
-            "image_path": "img/products/vectorforge-motherboard.svg",
-            "category": "Compute",
-        },
-        {
-            "name": "QuantumBlade NVMe SSD 2TB",
-            "description": "PCIe Gen4 M.2 solid state drive delivering 7,000 MB/s sequential reads with onboard heatsink.",
-            "price": 199.0,
-            "sku": "GL-SSD-QB2",
-            "inventory": 64,
-            "image_path": "img/products/quantumblade-ssd.svg",
-            "category": "Storage",
-        },
-        {
-            "name": "Helios 850W Modular PSU (80+ Platinum)",
-            "description": "Fully modular power supply with low ripple output, digital monitoring, and silent mode.",
-            "price": 189.0,
-            "sku": "GL-PSU-850",
-            "inventory": 41,
-            "image_path": "img/products/helios-psu.svg",
-            "category": "Power",
-        },
-        {
-            "name": "AuroraFlex USB-C Hub Pro",
-            "description": "Aluminium hub with Thunderbolt passthrough, dual 4K display outputs, and NVMe expansion bay.",
-            "price": 129.0,
-            "sku": "GL-HUB-AF9",
-            "inventory": 58,
-            "image_path": "img/products/auroraflex-hub.svg",
-            "category": "Accessories",
-        },
-        {
-            "name": "TitanEdge GPU Bracket (ARGB)",
-            "description": "Adjustable support bracket with addressable lighting to eliminate GPU sag in tempered glass builds.",
-            "price": 39.0,
-            "sku": "GL-GPU-TED",
-            "inventory": 97,
-            "image_path": "img/products/titanedge-bracket.svg",
-            "category": "Chassis",
-        },
-        {
-            "name": "IonCore Thermal Paste X9",
-            "description": "Nano-diamond thermal compound with low viscosity for high surface coverage and 12.5 W/mK conductivity.",
-            "price": 11.0,
-            "sku": "GL-THP-X9",
-            "inventory": 240,
-            "image_path": "img/products/ioncore-thermal.svg",
-            "category": "Cooling",
-        },
-        {
-            "name": "MatrixLab Precision Screwdriver Set",
-            "description": "40-bit magnetic driver kit with knurled grip handle for electronics disassembly and repair.",
-            "price": 54.0,
-            "sku": "GL-TLS-M40",
-            "inventory": 88,
-            "image_path": "img/products/matrixlab-tools.svg",
-            "category": "Tools",
-        },
-        {
-            "name": "GridWave Wi-Fi 7 Router",
-            "description": "Tri-band mesh-ready router with 10G WAN, OFDMA support, and quantum-resistant WPA4 firmware.",
-            "price": 289.0,
-            "sku": "GL-NET-GW7",
-            "inventory": 35,
-            "image_path": "img/products/gridwave-router.svg",
-            "category": "Networking",
-        },
-        {
-            "name": "LumenStrip Addressable LED Kit",
-            "description": "5m addressable RGB LED strip with adhesive backing, USB-C controller, and open API.",
-            "price": 59.0,
-            "sku": "GL-LIT-LMK",
-            "inventory": 120,
-            "image_path": "img/products/lumenstrip-kit.svg",
-            "category": "Lighting",
-        },
-        {
-            "name": "OptiMesh 140mm PWM Fan (2 pack)",
-            "description": "Low vibration 140mm fans with fluid dynamic bearings and daisy-chainable PWM headers.",
-            "price": 44.0,
-            "sku": "GL-FAN-140",
-            "inventory": 105,
-            "image_path": "img/products/optimesh-fan.svg",
-            "category": "Cooling",
-        },
-        {
-            "name": "CircuitNest Pico AI Dev Board",
-            "description": "Edge-ready microcontroller with NPU co-processor, onboard sensors, and MicroPython tooling.",
-            "price": 89.0,
-            "sku": "GL-DEV-PICO",
-            "inventory": 140,
-            "image_path": "img/products/circuitnest-ai.svg",
-            "category": "Embedded",
-        },
-        {
-            "name": "AtlasEdge Robotics Control Kit",
-            "description": "Modular CAN-enabled robotics controller with quad motor drivers, IMU, and ROS 2 templates.",
-            "price": 499.0,
-            "sku": "GL-ROB-AEX",
-            "inventory": 18,
-            "image_path": "img/products/atlasedge-robotics.svg",
-            "category": "Robotics",
-        },
-        {
-            "name": "BioFlux Wearable Sensor Pod",
-            "description": "Multi-sensor wearable node capturing ECG, SpO₂, and motion data with encrypted BLE sync.",
-            "price": 179.0,
-            "sku": "GL-WBL-BFX",
-            "inventory": 52,
-            "image_path": "img/products/bioflux-wearable.svg",
-            "category": "Wearables",
-        },
-        {
-            "name": "SymphonyIQ Studio Interface",
-            "description": "USB-C audio interface with dual preamps, onboard DSP profiles, and balanced monitor outs.",
-            "price": 259.0,
-            "sku": "GL-AUD-SIQ",
-            "inventory": 44,
-            "image_path": "img/products/symphonyiq-interface.svg",
-            "category": "Audio",
-        },
-        {
-            "name": "VoltStack Portable Power Deck",
-            "description": "Stackable 600Wh lithium pack with pure sine inverter and solar MPPT input.",
-            "price": 649.0,
-            "sku": "GL-PWR-VSD",
-            "inventory": 22,
-            "image_path": "img/products/voltstack-power.svg",
-            "category": "Power",
-        },
-        {
-            "name": "CarbonWeave 3D Filament Bundle",
-            "description": "Tri-spool bundle of carbon-infused nylon, PETG, and PLA tuned for engineering prints.",
-            "price": 96.0,
-            "sku": "GL-3DP-CWB",
-            "inventory": 75,
-            "image_path": "img/products/carbonweave-filament.svg",
-            "category": "Fabrication",
-        },
-        {
-            "name": "AetherGrid Smart Home Relay Hub",
-            "description": "Secure matter-compatible relay hub with AI routines and local voice assistant support.",
-            "price": 189.0,
-            "sku": "GL-IOT-AGR",
-            "inventory": 68,
-            "image_path": "img/products/aethergrid-relay.svg",
-            "category": "IoT",
-        },
-        {
-            "name": "AquaSense Hydroponic Sensor Array",
-            "description": "Industrial IP65 sensor cluster for EC, pH, temp, and nutrient flow with LoRaWAN uplink.",
-            "price": 349.0,
-            "sku": "GL-AGR-AQS",
-            "inventory": 33,
-            "image_path": "img/products/aquasense-array.svg",
-            "category": "Sensors",
-        },
-        {
-            "name": "HelioDrone Scout Frame Kit",
-            "description": "Lightweight carbon frame with foldable arms, gimbal mounting rails, and power distribution bus.",
-            "price": 279.0,
-            "sku": "GL-DRN-HDS",
-            "inventory": 27,
-            "image_path": "img/products/heliodrone-scout.svg",
-            "category": "Drones",
-        },
-        {
-            "name": "SkyPath Satellite IoT Modem",
-            "description": "Global LEO satellite modem with eSIM fallback, supporting MQTT and secure OTA updates.",
-            "price": 399.0,
-            "sku": "GL-COM-SPT",
-            "inventory": 31,
-            "image_path": "img/products/skypath-modem.svg",
-            "category": "Communications",
-        },
-        {
-            "name": "NovaPulse Laser Engraver Module",
-            "description": "Diode laser module with auto-focus, enclosure interlock, and parametric design presets.",
-            "price": 349.0,
-            "sku": "GL-FAB-NPL",
-            "inventory": 29,
-            "image_path": "img/products/novapulse-engraver.svg",
-            "category": "Fabrication",
-        },
-        {
-            "name": "PulseGuard Network Sentinel Appliance",
-            "description": "1U gateway with AI intrusion detection, inline traffic shaping, and zero-touch provisioning.",
-            "price": 589.0,
-            "sku": "GL-SEC-PGD",
-            "inventory": 24,
-            "image_path": "img/products/pulsegard-sentinel.svg",
-            "category": "Security",
-        },
-        {
-            "name": "TrackSense UWB Locator Beacons",
-            "description": "Six-pack of ultra-wideband anchors with PoE and centimeter-level indoor positioning.",
-            "price": 499.0,
-            "sku": "GL-IOT-TSB",
-            "inventory": 38,
-            "image_path": "img/products/tracksense-uwb.svg",
-            "category": "Positioning",
-        },
-        {
-            "name": "LumenWave Solar Lighting Kit",
-            "description": "Off-grid solar lighting kit with swappable battery cores and adaptive dusk scheduling.",
-            "price": 219.0,
-            "sku": "GL-ENG-LWS",
-            "inventory": 46,
-            "image_path": "img/products/lumenwave-solar.svg",
-            "category": "Energy",
-        },
-        {
-            "name": "QuantumWeave Edge AI Accelerator",
-            "description": "PCIe accelerator with 32 TOPS INT8 performance, ONNX runtime support, and thermals for fanless rigs.",
-            "price": 629.0,
-            "sku": "GL-AI-QWA",
-            "inventory": 21,
-            "image_path": "img/products/quantumweave-accelerator.svg",
-            "category": "AI Compute",
-        },
-    ]
+    """Populate the catalogue with real products so the UI has content."""
 
     with get_connection() as conn:
         current_version = conn.execute("PRAGMA user_version").fetchone()[0]
-        target_version = 6
+        target_version = 7
 
         needs_refresh = current_version < target_version
         if not needs_refresh:
@@ -938,19 +700,21 @@ def seed_data() -> None:
             needs_refresh = product_count == 0
 
         if needs_refresh:
+            conn.execute("DELETE FROM product_reviews")
             conn.execute("DELETE FROM products")
-            for product in samples:
+            for product in PRODUCT_CATALOG:
                 conn.execute(
                     """
-                    INSERT INTO products (name, description, price, sku, inventory_count, image_path, category)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO products (name, brand, description, price, sku, inventory_count, image_path, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         product["name"],
+                        product["brand"],
                         product["description"],
-                        product["price"],
-                        product["sku"],
-                        product["inventory"],
+                        float(product["price_aud"]),
+                        product.get("sku"),
+                        int(product["inventory"]),
                         product["image_path"],
                         product["category"],
                     ),
@@ -1080,11 +844,11 @@ def seed_data() -> None:
                     )
                 }
             sample_reviews = [
-                ("GL-ROB-AEX", "gearloom_lab", 5, "Handled four actuators and a LiDAR rig without finicky tuning. Firmware hooks were spot on."),
-                ("GL-DRN-HDS", "field_ops", 4, "Frame folds down fast and survived a windy survey. Would love a slightly wider power rail."),
-                ("GL-PWR-VSD", "grid_support", 5, "Ran a field lab for two days with constant 600W draw. The MPPT kept solar intake steady."),
-                ("GL-DEV-PICO", "circuit_artist", 4, "MicroPython examples flashed cleanly. Onboard IMU calibration doc was helpful."),
-                ("GL-AI-QWA", "render_stack", 5, "Slotted into a compact inference node and chews through ONNX graphs without throttling."),
+                ("CPU-RYZEN7-7800X3D", "gearloom_lab", 5, "Paired it with a B650 board and the 3D V-Cache shaved latency right off our UE benchmark scene."),
+                ("SBC-RPI5-8GB", "circuit_artist", 5, "Finally a Pi with real PCIe access — the m.2 carrier plus dual 4K outputs runs our kiosk without hiccups."),
+                ("ROBO-INTEL-D455", "field_ops", 4, "Depth map stays stable outdoors, though we printed a sun visor to cut glare on noon surveys."),
+                ("TOOLS-HAKKO-FX888D", "grid_support", 5, "Heat recovery is instant and tips swap quickly when we're doing mixed lead-free repairs."),
+                ("DISP-DELL-U2723QE", "render_stack", 4, "IPS Black looks great and the built-in hub reduced cable clutter across the AI edit suite."),
             ]
             for sku, username, rating, comment in sample_reviews:
                 product_id = sku_lookup.get(sku)
@@ -1108,6 +872,7 @@ def get_product(product_id: int) -> Optional[Mapping[str, object]]:
             SELECT
                 products.id,
                 products.name,
+                products.brand,
                 products.description,
                 products.price,
                 products.sku,
@@ -1240,6 +1005,7 @@ def fetch_recent_products_for_user(user_id: int, limit: int = 5) -> list[Mapping
             SELECT
                 products.id,
                 products.name,
+                products.brand,
                 products.description,
                 products.price,
                 products.sku,
@@ -1287,6 +1053,7 @@ def update_product(
     product_id: int,
     *,
     name: Optional[str] = None,
+    brand: Optional[str] = None,
     description: Optional[str] = None,
     price: Optional[float] = None,
     sku: Optional[str] = None,
@@ -1304,6 +1071,7 @@ def update_product(
             values.append(value)
 
     _append("name", name)
+    _append("brand", brand)
     _append("description", description)
     _append("price", price)
     _append("sku", sku)
@@ -1324,6 +1092,8 @@ def update_product(
 def _ensure_product_columns(conn: sqlite3.Connection) -> None:
     """Add newer columns to the products table when upgrading."""
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(products)")}
+    if "brand" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN brand TEXT NOT NULL DEFAULT ''")
     if "image_path" not in columns:
         conn.execute("ALTER TABLE products ADD COLUMN image_path TEXT")
     if "category" not in columns:

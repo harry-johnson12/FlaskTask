@@ -558,6 +558,7 @@ def seller_dashboard() -> str | Response:
     seller = _current_seller()
     create_form = {
         "name": "",
+        "brand": "",
         "description": "",
         "price": "",
         "sku": "",
@@ -594,6 +595,7 @@ def seller_dashboard() -> str | Response:
 
             create_form = {
                 "name": _form_text("name"),
+                "brand": _form_text("brand"),
                 "description": _form_text("description"),
                 "price": _form_text("price"),
                 "sku": _form_text("sku"),
@@ -619,6 +621,7 @@ def seller_dashboard() -> str | Response:
                             create_form["name"],
                             create_form["description"],
                             price_value if price_value is not None else 0.0,
+                            brand=create_form["brand"] or "Unbranded",
                             sku=create_form["sku"] or None,
                             inventory_count=inventory_value if inventory_value is not None else 0,
                             image_path=image_path,
@@ -652,6 +655,7 @@ def seller_dashboard() -> str | Response:
 
             # Update flow
             name = _form_text("name") or str(product["name"])
+            brand_value = _form_text("brand") or str(product.get("brand", ""))
             description = _form_text("description") or str(product["description"])
             price_raw = _form_text("price") or f"{product['price']}"
             sku = _form_text("sku") or cast(Optional[str], product.get("sku"))
@@ -678,6 +682,7 @@ def seller_dashboard() -> str | Response:
             update_product(
                 product_id,
                 name=name,
+                brand=brand_value,
                 description=description,
                 price=price_value if price_value is not None else float(str(product["price"])),
                 sku=sku,

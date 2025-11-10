@@ -139,6 +139,7 @@
                                         <h3 class="h5 mb-2">
                                             <a href="{{ url_for('product_detail', product_id=product['id']) }}">{{ product['name'] }}</a>
                                         </h3>
+                                        <p class="text-muted small mb-1">{{ product['brand'] }}</p>
                                         <div class="rating-line mb-2">
                                             {% with avg=product['avg_rating'], count=product['review_count'] %}
                                                 {% include 'shared/_rating_stars.html' with context %}

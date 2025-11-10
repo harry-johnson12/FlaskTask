@@ -53,6 +53,10 @@
                                     <input type="text" class="form-control" id="seller-product-name" name="name" value="{{ create_form.name }}" required>
                                 </div>
                                 <div class="mb-3">
+                                    <label class="form-label" for="seller-product-brand">Brand</label>
+                                    <input type="text" class="form-control" id="seller-product-brand" name="brand" value="{{ create_form.brand }}" placeholder="e.g. NVIDIA, Arduino" required>
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label" for="seller-product-description">Description</label>
                                     <textarea class="form-control" id="seller-product-description" name="description" rows="3" required>{{ create_form.description }}</textarea>
                                 </div>
@@ -101,7 +105,7 @@
                                         <summary class="product-summary">
                                             <div>
                                                 <strong>{{ product['name'] }}</strong>
-                                                <span class="text-muted d-block small">SKU {{ product['sku'] or '—' }} &middot; {{ product['category'] }}</span>
+                                                <span class="text-muted d-block small">{{ product['brand'] }} &middot; SKU {{ product['sku'] or '—' }} &middot; {{ product['category'] }}</span>
                                             </div>
                                             <div class="text-end">
                                                     <span class="fw-semibold">${{ '%.2f'|format(product['price']) }}</span>
@@ -117,9 +121,13 @@
                                                             <input type="text" class="form-control" name="name" value="{{ product['name'] }}">
                                                         </div>
                                                         <div class="col-md-6 mb-3">
-                                                            <label class="form-label">Category</label>
-                                                            <input type="text" class="form-control" name="category" value="{{ product['category'] }}">
+                                                            <label class="form-label">Brand</label>
+                                                            <input type="text" class="form-control" name="brand" value="{{ product['brand'] }}">
                                                         </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Category</label>
+                                                        <input type="text" class="form-control" name="category" value="{{ product['category'] }}">
                                                     </div>
                                                     <div class="mb-3">
                                                         <label class="form-label">Description</label>
