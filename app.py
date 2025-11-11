@@ -87,65 +87,60 @@ HERO_VARIANTS: List[Dict[str, str]] = [
 LAB_NOTEBOOK_VARIANTS: List[Dict[str, object]] = [
     {
         "title": "Lab notebook",
-        "intro": (
-            "Quick pairings from this week’s validation runs. Each stack ships with wiring diagrams and BOM references "
-            "so you can go from cart to rig without rewrites."
-        ),
+        "intro": "Edge deployments we’ve validated this week — every stack pulls straight from the live catalogue.",
         "entries": [
             {
-                "headline": "Autonomous Field Unit",
-                "body": "AtlasEdge Robotics Control Kit + TrackSense UWB anchors keep multi-robot teams located within centimetres.",
+                "headline": "Jetson Vision Cart",
+                "body": "Jetson Orin Nano Dev Kit drives a Luxonis OAK-D Lite depth cam for ROS 2 perception, powered by an EcoFlow DELTA 2.",
             },
             {
-                "headline": "Off-grid Lab",
-                "body": "VoltStack Power Deck paired with LumenWave Solar kit powers pop-up build stations and remote labs.",
+                "headline": "Warehouse Rover",
+                "body": "REV NEO Vortex brushless motors plus goBILDA Yellow Jacket gearboxes feed an ODrive S1 for smooth FOC motion.",
             },
             {
-                "headline": "Immersive Studio",
-                "body": "SymphonyIQ Interface plus BioFlux Wearable sync spatial audio experiments with live biometrics.",
+                "headline": "Survey Rig",
+                "body": "Intel RealSense D455 paired with the SparkFun RTK Express kit logs centimeter-accurate point clouds over Wi-Fi 6.",
             },
         ],
-        "footer_text": "Trusted by labs & makerspaces worldwide",
+        "footer_text": "Trusted by field robotics crews from Perth to Portland",
     },
     {
         "title": "Lab notebook",
-        "intro": (
-            "Stacks our field team certified during thermal, vibration, and salt-fog passes. Drop-in notes ship with each kit."
-        ),
+        "intro": "SBC combos teams keep cloning — each note includes firmware pins and BOM references inside the console.",
         "entries": [
             {
-                "headline": "Cloudless Rover Rig",
-                "body": "NovaDrive brain + TrackSense 6DoF stack pilots remote rovers without uplink anxiety.",
+                "headline": "Pi 5 Sensor Spine",
+                "body": "Raspberry Pi 5 (8GB) drives a Seeed Grove GPS module and Adafruit VL53L4CD ToF sensor through a Grove I2C hub.",
             },
             {
-                "headline": "Deepfreeze Pod",
-                "body": "CryoSafe harness plus Helios inverter kit keeps cryo storage stable off 48V microgrids.",
+                "headline": "Feather Data Logger",
+                "body": "Adafruit Feather RP2040 with the OpenLog Artemis and INA260 current sensor logs solar prototypes to Qwiic flash.",
             },
             {
-                "headline": "BioTelemetry Bench",
-                "body": "PulseMesh gateway with LumenWear sensors streams ICU-grade vitals straight to lab dashboards.",
+                "headline": "Boron Remote Node",
+                "body": "Particle Boron LTE boards power Benewake TFmini-S rangefinders for always-on tank level telemetry.",
             },
         ],
-        "footer_text": "Runbooks shared with 140+ partner facilities",
+        "footer_text": "Documentation drops nightly in the build assistant",
     },
     {
         "title": "Lab notebook",
-        "intro": "Most requested build sheets from community drops. Each includes impedance maps and config files.",
+        "intro": "Requested PC builds flowing through the storefront — component SKUs match what’s live today.",
         "entries": [
             {
-                "headline": "Aerial Ops Stack",
-                "body": "Skyforge flight computer + FluxWing ESC kit keeps UAV fleets synced through gusty corridors.",
+                "headline": "Creator Tower",
+                "body": "Ryzen 7 7800X3D on an ASUS ROG Strix Z790-E board with a Samsung 990 Pro 2TB scratch disk keeps Unreal shaders hot.",
             },
             {
-                "headline": "Factory Twin Cart",
-                "body": "Tactum PLC brain with PrismEdge vision rail mirrors production cells for digital twin testing.",
+                "headline": "Edge AI Shuttle",
+                "body": "GeForce RTX 4070 Ti SUPER Founders Edition plus Seasonic PRIME TX-1000 feeds stable 24/7 inference nodes.",
             },
             {
-                "headline": "Bioreactor Guardian",
-                "body": "FermaSense probe kit and VentraFlow valves regulate pressure, pH, and nutrient dosing automatically.",
+                "headline": "Mobile Lab Cart",
+                "body": "Anker 737 Power Bank, Pinecil V2 iron, and iFixit Pro Tech kit keep field patching teams solder-ready on site.",
             },
         ],
-        "footer_text": "Shared daily in the partner flight log",
+        "footer_text": "Change logs mirror the live catalogue each morning",
     },
 ]
 

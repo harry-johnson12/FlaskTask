@@ -81,14 +81,17 @@ def init_db() -> None:
                 first_name TEXT NOT NULL,
                 last_name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
+                user_id INTEGER UNIQUE,
                 company TEXT,
                 notes TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_id INTEGER NOT NULL,
+                user_id INTEGER,
                 seller_id INTEGER,
                 status TEXT NOT NULL DEFAULT 'pending',
                 total_amount REAL NOT NULL DEFAULT 0,
@@ -96,6 +99,7 @@ def init_db() -> None:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL
             );
 
@@ -132,6 +136,8 @@ def init_db() -> None:
         )
         _ensure_product_columns(conn)
         _ensure_user_columns(conn)
+        _ensure_customer_columns(conn)
+        _ensure_order_columns(conn)
 
     seed_data()
 
@@ -174,21 +180,21 @@ def fetch_products(
     if search:
         like_term = f"%{search.lower()}%"
         conditions.append(
-            "(LOWER(name) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ? OR LOWER(COALESCE(sku, '')) LIKE ?)"
+            "(LOWER(products.name) LIKE ? OR LOWER(products.brand) LIKE ? OR LOWER(products.description) LIKE ? OR LOWER(COALESCE(products.sku, '')) LIKE ?)"
         )
         params.extend([like_term, like_term, like_term, like_term])
 
     stock_map = {
-        "in": "inventory_count > 0",
-        "low": "inventory_count > 0 AND inventory_count <= 10",
-        "out": "inventory_count <= 0",
+        "in": "products.inventory_count > 0",
+        "low": "products.inventory_count > 0 AND products.inventory_count <= 10",
+        "out": "products.inventory_count <= 0",
     }
     stock_clause = stock_map.get((stock_filter or "").lower())
     if stock_clause:
         conditions.append(stock_clause)
 
     if category and category.lower() != "all":
-        conditions.append("LOWER(category) = ?")
+        conditions.append("LOWER(products.category) = ?")
         params.append(category.lower())
 
     if seller_id is not None:
@@ -198,12 +204,12 @@ def fetch_products(
     order_by_map = {
         "newest": "products.id DESC",
         "oldest": "products.id ASC",
-        "price_low": "price ASC, products.id DESC",
-        "price_high": "price DESC, products.id DESC",
-        "inventory_low": "inventory_count ASC, products.id DESC",
-        "inventory_high": "inventory_count DESC, products.id DESC",
-        "name_az": "LOWER(name) ASC, products.id DESC",
-        "name_za": "LOWER(name) DESC, products.id DESC",
+        "price_low": "products.price ASC, products.id DESC",
+        "price_high": "products.price DESC, products.id DESC",
+        "inventory_low": "products.inventory_count ASC, products.id DESC",
+        "inventory_high": "products.inventory_count DESC, products.id DESC",
+        "name_az": "LOWER(products.name) ASC, products.id DESC",
+        "name_za": "LOWER(products.name) DESC, products.id DESC",
         "rating_high": "avg_rating DESC, review_count DESC, products.id DESC",
         "rating_low": "avg_rating ASC, review_count DESC, products.id DESC",
     }
@@ -324,6 +330,12 @@ def get_user_by_username(username: str) -> Optional[Mapping[str, object]]:
             (username,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def delete_user(user_id: int) -> None:
+    """Remove a user account and cascade-delete related rows."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
 
 def get_user_by_id(user_id: int) -> Optional[Mapping[str, object]]:
@@ -468,6 +480,7 @@ def fetch_sellers() -> list[Mapping[str, object]]:
             """
             SELECT
                 sellers.id,
+                sellers.user_id,
                 sellers.store_name,
                 sellers.description,
                 sellers.contact_email,
@@ -491,7 +504,7 @@ def fetch_customers() -> list[Mapping[str, object]]:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, first_name, last_name, email, company, notes, created_at
+            SELECT id, first_name, last_name, email, company, notes, created_at, user_id
             FROM customers
             ORDER BY id DESC
             """
@@ -504,6 +517,7 @@ def create_customer(
     last_name: str,
     email: str,
     *,
+    user_id: Optional[int] = None,
     company: Optional[str] = None,
     notes: Optional[str] = None,
 ) -> int:
@@ -512,10 +526,10 @@ def create_customer(
         return _insert_and_return_id(
             conn,
             """
-            INSERT INTO customers (first_name, last_name, email, company, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO customers (first_name, last_name, email, user_id, company, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (first_name, last_name, email, company, notes),
+            (first_name, last_name, email, user_id, company, notes),
         )
 
 
@@ -525,6 +539,7 @@ def update_customer(
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
     email: Optional[str] = None,
+    user_id: Optional[int] = None,
     company: Optional[str] = None,
     notes: Optional[str] = None,
 ) -> None:
@@ -540,6 +555,7 @@ def update_customer(
     _append("first_name", first_name)
     _append("last_name", last_name)
     _append("email", email)
+    _append("user_id", user_id)
     _append("company", company)
     _append("notes", notes)
 
@@ -573,9 +589,53 @@ def get_customer(customer_id: int) -> Optional[Mapping[str, object]]:
     return dict(row) if row else None
 
 
+def get_customer_by_user_id(user_id: int) -> Optional[Mapping[str, object]]:
+    """Return a customer profile associated with the given user."""
+    if user_id is None:
+        return None
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, first_name, last_name, email, company, notes, created_at, user_id
+            FROM customers
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def ensure_customer_for_user(
+    user_id: int,
+    *,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    email: Optional[str] = None,
+    company: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> int:
+    """Guarantee there is a customer record backing a user id and return its id."""
+    existing = get_customer_by_user_id(user_id)
+    if existing:
+        return int(existing["id"])
+
+    fallback_first = first_name or f"User {user_id}"
+    fallback_last = last_name or ""
+    fallback_email = email or f"user-{user_id}@example.invalid"
+    return create_customer(
+        fallback_first,
+        fallback_last,
+        fallback_email,
+        user_id=user_id,
+        company=company,
+        notes=notes,
+    )
+
+
 def create_order(
     customer_id: int,
     *,
+    user_id: Optional[int] = None,
     seller_id: Optional[int] = None,
     status: str = "pending",
     total_amount: float = 0.0,
@@ -586,10 +646,10 @@ def create_order(
         return _insert_and_return_id(
             conn,
             """
-            INSERT INTO orders (customer_id, seller_id, status, total_amount, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO orders (customer_id, user_id, seller_id, status, total_amount, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (customer_id, seller_id, status, total_amount, notes),
+            (customer_id, user_id, seller_id, status, total_amount, notes),
         )
 
 
@@ -600,6 +660,7 @@ def update_order(
     total_amount: Optional[float] = None,
     notes: Optional[str] = None,
     seller_id: Optional[int] = None,
+    user_id: Optional[int] = None,
 ) -> None:
     """Update the provided order details."""
     fields: list[str] = []
@@ -614,6 +675,7 @@ def update_order(
     _append("total_amount", total_amount)
     _append("notes", notes)
     _append("seller_id", seller_id)
+    _append("user_id", user_id)
 
     if not fields:
         return
@@ -640,6 +702,7 @@ def fetch_orders() -> list[Mapping[str, object]]:
             """
             SELECT
                 orders.id,
+                orders.user_id,
                 orders.status,
                 orders.total_amount,
                 orders.notes,
@@ -649,10 +712,13 @@ def fetch_orders() -> list[Mapping[str, object]]:
                 customers.first_name || ' ' || customers.last_name AS customer_name,
                 customers.email AS customer_email,
                 sellers.id AS seller_id,
-                sellers.store_name AS seller_name
+                sellers.store_name AS seller_name,
+                COALESCE(order_users.username, customer_users.username) AS user_username
             FROM orders
             JOIN customers ON customers.id = orders.customer_id
             LEFT JOIN sellers ON sellers.id = orders.seller_id
+            LEFT JOIN users AS order_users ON order_users.id = orders.user_id
+            LEFT JOIN users AS customer_users ON customer_users.id = customers.user_id
             ORDER BY orders.id DESC
             """
         )
@@ -666,6 +732,7 @@ def get_order(order_id: int) -> Optional[Mapping[str, object]]:
             """
             SELECT
                 orders.id,
+                orders.user_id,
                 orders.status,
                 orders.total_amount,
                 orders.notes,
@@ -692,7 +759,7 @@ def seed_data() -> None:
 
     with get_connection() as conn:
         current_version = conn.execute("PRAGMA user_version").fetchone()[0]
-        target_version = 7
+        target_version = 8
 
         needs_refresh = current_version < target_version
         if not needs_refresh:
@@ -701,6 +768,8 @@ def seed_data() -> None:
 
         if needs_refresh:
             conn.execute("DELETE FROM product_reviews")
+            conn.execute("DELETE FROM orders")
+            conn.execute("DELETE FROM customers")
             conn.execute("DELETE FROM products")
             for product in PRODUCT_CATALOG:
                 conn.execute(
@@ -787,44 +856,6 @@ def seed_data() -> None:
                 "UPDATE products SET seller_id = ? WHERE seller_id IS NULL",
                 (default_seller["id"],),
             )
-
-        # Seed a couple of customers so analytics look alive.
-        customer_count = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
-        if customer_count == 0:
-            conn.executemany(
-                """
-                INSERT INTO customers (first_name, last_name, email, company, notes)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                [
-                    ("Jamie", "Rivera", "jamie@example.com", "Axion Labs", "Prefers solar inventory."),
-                    ("Taylor", "Bennett", "taylor@example.com", "FieldGrid", "Needs rush shipping."),
-                    ("Morgan", "Vale", "morgan@example.com", "Lumen Dynamics", None),
-                ],
-            )
-
-        order_count = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
-        if order_count == 0:
-            customer_lookup = {
-                row["email"]: row["id"] for row in conn.execute("SELECT id, email FROM customers")
-            }
-            sample_orders = [
-                ("jamie@example.com", "processing", 512.0, "AI controller kit build", "gearloom_lab"),
-                ("taylor@example.com", "pending", 189.0, "Portable solar stack preorder", "gearloom_lab"),
-                ("morgan@example.com", "fulfilled", 329.0, "Motherboard restock", "gearloom_lab"),
-            ]
-            for email, status, total_amount, notes, seller_username in sample_orders:
-                customer_id = customer_lookup.get(email)
-                seller_id = seller_lookup.get(seller_username)
-                if not customer_id:
-                    continue
-                conn.execute(
-                    """
-                    INSERT INTO orders (customer_id, seller_id, status, total_amount, notes)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (customer_id, seller_id, status, total_amount, notes),
-                )
 
         review_total = conn.execute("SELECT COUNT(*) FROM product_reviews").fetchone()[0]
         if review_total == 0:
@@ -1109,3 +1140,20 @@ def _ensure_user_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
     if "is_seller" not in columns:
         conn.execute("ALTER TABLE users ADD COLUMN is_seller INTEGER NOT NULL DEFAULT 0")
+
+
+def _ensure_customer_columns(conn: sqlite3.Connection) -> None:
+    """Ensure newer customer metadata (like user linkage) exists."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(customers)")}
+    if "user_id" not in columns:
+        conn.execute("ALTER TABLE customers ADD COLUMN user_id INTEGER REFERENCES users(id)")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id) WHERE user_id IS NOT NULL"
+    )
+
+
+def _ensure_order_columns(conn: sqlite3.Connection) -> None:
+    """Ensure orders track linked users."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(orders)")}
+    if "user_id" not in columns:
+        conn.execute("ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id)")

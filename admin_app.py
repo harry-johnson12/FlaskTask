@@ -6,24 +6,18 @@ from functools import wraps
 from typing import Optional, cast
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
-    create_customer,
-    create_order,
-    delete_customer,
-    delete_order,
-    fetch_customers,
-    fetch_orders,
+    create_user,
+    delete_product,
+    delete_user,
+    fetch_seller_products,
     fetch_sellers,
     fetch_users,
-    get_customer,
-    get_order,
     get_user_by_id,
     get_user_by_username,
     init_db,
-    update_customer,
-    update_order,
 )
 
 # Ensure tables exist before the admin panel starts serving requests.
@@ -112,159 +106,81 @@ def logout():
 @admin_required
 def dashboard():
     """Admin console focused on customers, orders, and account visibility."""
-    status_choices = ["pending", "processing", "fulfilled", "cancelled"]
 
     if request.method == "POST":
         action = request.form.get("action", "")
 
-        if action == "create_customer":
-            first_name = _form_text("first_name")
-            last_name = _form_text("last_name")
-            email = _form_text("email")
-            company = _form_text("company") or None
-            notes = _form_text("notes") or None
-            if not (first_name and last_name and email):
-                flash("First name, last name, and email are required.", "warning")
+        if action == "create_user_account":
+            username = _form_text("username")
+            password = request.form.get("password") or ""
+            password_confirm = request.form.get("password_confirm") or ""
+
+            if not username or not password:
+                flash("Username and password are required.", "warning")
+                return redirect(url_for("dashboard"))
+            if password != password_confirm:
+                flash("Passwords do not match.", "danger")
+                return redirect(url_for("dashboard"))
+            if get_user_by_username(username):
+                flash("That username already exists.", "danger")
+                return redirect(url_for("dashboard"))
+
+            password_hash = generate_password_hash(password)
+            create_user(username, password_hash)
+            flash("User account created.", "success")
+            return redirect(url_for("dashboard"))
+
+        if action == "delete_user":
+            try:
+                target_user_id = int(request.form.get("user_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not determine which user to delete.", "danger")
+                return redirect(url_for("dashboard"))
+
+            admin_user = _current_admin()
+            if admin_user and int(admin_user["id"]) == target_user_id:
+                flash("You cannot delete the currently signed-in admin.", "warning")
+                return redirect(url_for("dashboard"))
+
+            delete_user(target_user_id)
+            flash("User removed.", "info")
+            return redirect(url_for("dashboard"))
+
+        if action == "delete_product":
+            try:
+                product_id = int(request.form.get("product_id", ""))
+            except (TypeError, ValueError):
+                flash("Could not resolve the product to delete.", "danger")
             else:
-                create_customer(first_name, last_name, email, company=company, notes=notes)
-                flash("Customer created.", "success")
-            return redirect(url_for("dashboard"))
-
-        if action == "update_customer":
-            try:
-                customer_id = int(request.form.get("customer_id", ""))
-            except (TypeError, ValueError):
-                flash("Could not resolve the customer to update.", "danger")
-                return redirect(url_for("dashboard"))
-
-            first_name = _form_text("first_name")
-            last_name = _form_text("last_name")
-            email = _form_text("email")
-            if not (first_name and last_name and email):
-                flash("First name, last name, and email are required.", "warning")
-                return redirect(url_for("dashboard"))
-
-            update_customer(
-                customer_id,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                company=_form_text("company") or None,
-                notes=_form_text("notes") or None,
-            )
-            flash("Customer updated.", "success")
-            return redirect(url_for("dashboard"))
-
-        if action == "delete_customer":
-            try:
-                customer_id = int(request.form.get("customer_id", ""))
-            except (TypeError, ValueError):
-                flash("Could not resolve the customer to delete.", "danger")
-            else:
-                delete_customer(customer_id)
-                flash("Customer removed.", "info")
-            return redirect(url_for("dashboard"))
-
-        if action == "create_order":
-            try:
-                customer_id = int(request.form.get("customer_id", ""))
-            except (TypeError, ValueError):
-                flash("Select a customer for the order.", "warning")
-                return redirect(url_for("dashboard"))
-
-            if not get_customer(customer_id):
-                flash("Customer not found.", "danger")
-                return redirect(url_for("dashboard"))
-
-            seller_id_raw = request.form.get("seller_id") or ""
-            seller_id = None
-            if seller_id_raw:
-                try:
-                    seller_id = int(seller_id_raw)
-                except ValueError:
-                    seller_id = None
-
-            status_value = _form_text("status") or "pending"
-            total_raw = _form_text("total_amount") or "0"
-            try:
-                total_amount = float(total_raw)
-            except ValueError:
-                flash("Order total must be numeric.", "warning")
-                return redirect(url_for("dashboard"))
-
-            create_order(
-                customer_id,
-                seller_id=seller_id,
-                status=status_value,
-                total_amount=total_amount,
-                notes=_form_text("notes") or None,
-            )
-            flash("Order recorded.", "success")
-            return redirect(url_for("dashboard"))
-
-        if action == "update_order":
-            try:
-                order_id = int(request.form.get("order_id", ""))
-            except (TypeError, ValueError):
-                flash("Could not resolve the order.", "danger")
-                return redirect(url_for("dashboard"))
-
-            if not get_order(order_id):
-                flash("Order not found.", "danger")
-                return redirect(url_for("dashboard"))
-
-            seller_id_raw = request.form.get("seller_id") or ""
-            seller_id = None
-            if seller_id_raw:
-                try:
-                    seller_id = int(seller_id_raw)
-                except ValueError:
-                    seller_id = None
-
-            total_raw = _form_text("total_amount") or ""
-            total_value: Optional[float] = None
-            if total_raw:
-                try:
-                    total_value = float(total_raw)
-                except ValueError:
-                    flash("Order total must be numeric.", "warning")
-                    return redirect(url_for("dashboard"))
-
-            update_order(
-                order_id,
-                status=_form_text("status") or None,
-                total_amount=total_value,
-                notes=_form_text("notes") or None,
-                seller_id=seller_id,
-            )
-            flash("Order updated.", "success")
-            return redirect(url_for("dashboard"))
-
-        if action == "delete_order":
-            try:
-                order_id = int(request.form.get("order_id", ""))
-            except (TypeError, ValueError):
-                flash("Could not resolve the order to delete.", "danger")
-            else:
-                delete_order(order_id)
-                flash("Order removed.", "info")
+                delete_product(product_id)
+                flash("Product removed.", "info")
             return redirect(url_for("dashboard"))
 
         flash("Unknown admin action.", "warning")
         return redirect(url_for("dashboard"))
 
-    customers = fetch_customers()
-    orders = fetch_orders()
     sellers = fetch_sellers()
     users = fetch_users()
 
+    seller_lookup = {seller["user_id"]: seller for seller in sellers}
+    seller_products = {
+        int(seller["id"]): fetch_seller_products(int(seller["id"])) for seller in sellers
+    }
+    user_cards: list[dict[str, object]] = []
+    for user in users:
+        seller = seller_lookup.get(user["id"])
+        products = seller_products.get(int(seller["id"])) if seller else []
+        user_cards.append(
+            {
+                "user": user,
+                "seller": seller,
+                "products": products or [],
+            }
+        )
+
     return render_template(
         "admin.html",
-        customers=customers,
-        orders=orders,
-        sellers=sellers,
-        users=users,
-        status_choices=status_choices,
+        user_cards=user_cards,
     )
 
 

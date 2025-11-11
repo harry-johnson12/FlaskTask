@@ -4,18 +4,24 @@
             <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
             <span>Gearloom</span>
         </a>
-        <div class="navbar-nav ms-auto align-items-center gap-2">
-            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
-                Home
-            </a>
+        <div class="navbar-nav ms-auto align-items-center gap-2 w-100">
             <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
                 About
             </a>
+            <form class="navbar-search" role="search" method="get" action="{{ url_for('products') }}">
+                <label class="visually-hidden" for="navbar-search-input">Search products</label>
+                <input
+                    type="search"
+                    id="navbar-search-input"
+                    name="search"
+                    class="navbar-search-input"
+                    placeholder="Search products"
+                    value="{{ request.args.get('search', '') if request.endpoint == 'products' else '' }}"
+                >
+                <button type="submit" class="navbar-search-btn">Search</button>
+            </form>
             <a class="nav-link {% if request.endpoint == 'products' %}active{% endif %}" href="{{ url_for('products') }}">
                 Products
-            </a>
-            <a class="nav-link {% if request.endpoint == 'seller_dashboard' %}active{% endif %}" href="{{ url_for('seller_dashboard') }}">
-                Seller Dashboard
             </a>
             <a class="nav-link cart-link {% if request.endpoint == 'cart' %}active{% endif %}" href="{{ url_for('cart') }}">
                 Cart
@@ -24,9 +30,13 @@
                 {% endif %}
             </a>
             {% if current_user %}
-                {% if current_user.get('is_seller') %}
-                    <span class="pill text-success text-uppercase small">Seller</span>
-                {% endif %}
+                <a class="nav-link {% if request.endpoint == 'seller_dashboard' %}active{% endif %}" href="{{ url_for('seller_dashboard') }}">
+                    {% if current_seller %}
+                        Seller Dashboard
+                    {% else %}
+                        Become a Seller
+                    {% endif %}
+                </a>
                 <span class="user-pill">{{ current_user['username'] }}</span>
                 <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
             {% else %}
