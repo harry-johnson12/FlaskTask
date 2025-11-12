@@ -15,13 +15,12 @@
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
                 <span>Gearloom Admin</span>
             </a>
-            <div class="navbar-nav ms-auto align-items-center gap-2">
-                <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
-                {% if admin_user %}
+            {% if admin_user %}
+                <div class="navbar-nav align-items-center gap-2 admin-nav">
                     <span class="user-pill">{{ admin_user['username'] }}</span>
                     <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </div>
     </nav>
 

@@ -80,13 +80,17 @@ code {
 .navbar .container {
     display: flex;
     align-items: center;
-    padding: 0.9rem clamp(0.8rem, 3vw, 1.6rem);
-    gap: clamp(0.35rem, 1.5vw, 1.1rem);
+    padding: 0.9rem clamp(0.6rem, 2.5vw, 1.4rem);
+    gap: clamp(0.25rem, 1.2vw, 0.9rem);
 }
 
 .navbar-nav.ms-auto {
-    margin-left: clamp(0.5rem, 1.5vw, 2rem) !important;
+    margin-left: clamp(0.2rem, 1vw, 0.8rem) !important;
     flex: 1 1 auto;
+}
+
+.admin-nav {
+    margin-left: clamp(0.3rem, 1vw, 0.9rem);
 }
 
 .navbar-brand {
@@ -95,7 +99,7 @@ code {
     gap: 0.65rem;
     letter-spacing: 0.02em;
     text-transform: none;
-    margin-right: clamp(0.4rem, 1.3vw, 1.2rem);
+    margin-right: clamp(0.2rem, 1vw, 0.8rem);
 }
 
 .navbar-brand img {
@@ -117,10 +121,10 @@ code {
 .navbar-search {
     position: relative;
     display: block;
-    flex: 1 1 420px;
+    flex: 1 1 520px;
     width: 100%;
     max-width: none;
-    min-width: 13rem;
+    min-width: 14rem;
     margin: 0;
 }
 

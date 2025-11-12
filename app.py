@@ -524,9 +524,29 @@ def product_detail(product_id: int) -> Union[str, Response]:
             return redirect(url_for("product_detail", product_id=product_id))
 
         cart = _get_cart()
-        cart[product_id] = cart.get(product_id, 0) + quantity_value
+        available_stock = int(product.get("inventory_count") or 0)
+        if available_stock <= 0:
+            flash("This product is currently out of stock.", "warning")
+            return redirect(url_for("product_detail", product_id=product_id))
+
+        existing_qty = cart.get(product_id, 0)
+        if existing_qty >= available_stock:
+            flash("You've already added the maximum available stock for this item.", "info")
+            return redirect(url_for("product_detail", product_id=product_id))
+
+        new_total = existing_qty + quantity_value
+        if new_total > available_stock:
+            new_total = available_stock
+            flash(
+                f"Only {available_stock} unit{'s' if available_stock != 1 else ''} of {product['name']} are in stock. "
+                "Your cart has been updated to the maximum allowed.",
+                "warning",
+            )
+        else:
+            flash(f"Added {quantity_value} × {product['name']} to your cart.", "success")
+
+        cart[product_id] = new_total
         _store_cart(cart)
-        flash(f"Added {quantity_value} × {product['name']} to your cart.", "success")
         return redirect(url_for("cart"))
 
     rating_summary = get_product_rating_summary(product_id)
@@ -744,6 +764,13 @@ def update_cart(product_id: int):
         flash("That product was not in your cart.", "warning")
         return redirect(url_for("cart"))
 
+    product = get_product(product_id)
+    if not product:
+        cart.pop(product_id, None)
+        _store_cart(cart)
+        flash("That product is no longer available and was removed from your cart.", "warning")
+        return redirect(url_for("cart"))
+
     quantity_raw = request.form.get("quantity", "1")
     try:
         quantity_value = int(quantity_raw)
@@ -755,8 +782,20 @@ def update_cart(product_id: int):
         cart.pop(product_id, None)
         flash("Removed the product from your cart.", "info")
     else:
-        cart[product_id] = quantity_value
-        flash("Updated your cart.", "success")
+        available_stock = int(product.get("inventory_count") or 0)
+        if available_stock <= 0:
+            cart.pop(product_id, None)
+            flash("That item is no longer in stock and was removed from your cart.", "warning")
+        elif quantity_value > available_stock:
+            cart[product_id] = available_stock
+            flash(
+                f"Only {available_stock} unit{'s' if available_stock != 1 else ''} of {product['name']} are available. "
+                "Your cart quantity was adjusted.",
+                "warning",
+            )
+        else:
+            cart[product_id] = quantity_value
+            flash("Updated your cart.", "success")
 
     _store_cart(cart)
     return redirect(url_for("cart"))
