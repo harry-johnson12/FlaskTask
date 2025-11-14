@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import math
+import os
 import random
 import re
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Union, cast
+from typing import Any, Dict, List, Mapping, Optional, Union, cast
 from uuid import uuid4
 
 from flask import (
     Flask,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -23,6 +26,8 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers import Response
 from werkzeug.utils import secure_filename
+
+from openai import OpenAI
 
 from database import (
     create_user,
@@ -57,6 +62,30 @@ UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
+# OpenAI configuration for the AI Project Builder feature.
+OPENAI_KEY_FILE = Path(__file__).with_name("openai_key.txt")
+
+
+def _read_openai_key_from_file(path: Path) -> str | None:
+    """Read a whitespace-trimmed API key from a local file if present."""
+
+    try:
+        contents = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    return contents or None
+
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or _read_openai_key_from_file(OPENAI_KEY_FILE)
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+PROJECT_BUILDER_INTRO = (
+    "Describe the robot, test rig, or power system you are planning and the AI will pull compatible "
+    "controllers, sensors, and support gear directly from today's catalogue."
+)
+PROJECT_BUILDER_CATALOG_LIMIT = 0
+PROJECT_BUILDER_MAX_QUANTITY = 6
+_openai_client: OpenAI | None = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
 HERO_VARIANTS: List[Dict[str, str]] = [
     {
         "badge": "Gearloom Supply",
@@ -81,66 +110,6 @@ HERO_VARIANTS: List[Dict[str, str]] = [
             "We pre-bundle controllers, firmware notes, and harness plans so your lab can jump from CAD to cart with "
             "zero spreadsheet archaeology."
         ),
-    },
-]
-
-LAB_NOTEBOOK_VARIANTS: List[Dict[str, object]] = [
-    {
-        "title": "Lab notebook",
-        "intro": "Edge deployments we’ve validated this week — every stack pulls straight from the live catalogue.",
-        "entries": [
-            {
-                "headline": "Jetson Vision Cart",
-                "body": "Jetson Orin Nano Dev Kit drives a Luxonis OAK-D Lite depth cam for ROS 2 perception, powered by an EcoFlow DELTA 2.",
-            },
-            {
-                "headline": "Warehouse Rover",
-                "body": "REV NEO Vortex brushless motors plus goBILDA Yellow Jacket gearboxes feed an ODrive S1 for smooth FOC motion.",
-            },
-            {
-                "headline": "Survey Rig",
-                "body": "Intel RealSense D455 paired with the SparkFun RTK Express kit logs centimeter-accurate point clouds over Wi-Fi 6.",
-            },
-        ],
-        "footer_text": "Trusted by field robotics crews from Perth to Portland",
-    },
-    {
-        "title": "Lab notebook",
-        "intro": "SBC combos teams keep cloning — each note includes firmware pins and BOM references inside the console.",
-        "entries": [
-            {
-                "headline": "Pi 5 Sensor Spine",
-                "body": "Raspberry Pi 5 (8GB) drives a Seeed Grove GPS module and Adafruit VL53L4CD ToF sensor through a Grove I2C hub.",
-            },
-            {
-                "headline": "Feather Data Logger",
-                "body": "Adafruit Feather RP2040 with the OpenLog Artemis and INA260 current sensor logs solar prototypes to Qwiic flash.",
-            },
-            {
-                "headline": "Boron Remote Node",
-                "body": "Particle Boron LTE boards power Benewake TFmini-S rangefinders for always-on tank level telemetry.",
-            },
-        ],
-        "footer_text": "Documentation drops nightly in the build assistant",
-    },
-    {
-        "title": "Lab notebook",
-        "intro": "Requested PC builds flowing through the storefront — component SKUs match what’s live today.",
-        "entries": [
-            {
-                "headline": "Creator Tower",
-                "body": "Ryzen 7 7800X3D on an ASUS ROG Strix Z790-E board with a Samsung 990 Pro 2TB scratch disk keeps Unreal shaders hot.",
-            },
-            {
-                "headline": "Edge AI Shuttle",
-                "body": "GeForce RTX 4070 Ti SUPER Founders Edition plus Seasonic PRIME TX-1000 feeds stable 24/7 inference nodes.",
-            },
-            {
-                "headline": "Mobile Lab Cart",
-                "body": "Anker 737 Power Bank, Pinecil V2 iron, and iFixit Pro Tech kit keep field patching teams solder-ready on site.",
-            },
-        ],
-        "footer_text": "Change logs mirror the live catalogue each morning",
     },
 ]
 
@@ -256,6 +225,204 @@ def _store_cart(cart: Dict[int, int]) -> None:
     session.modified = True
 
 
+def _safe_load_recommendation_json(raw_text: str) -> dict[str, Any]:
+    """Extract JSON content from an LLM response, trimming any surrounding prose."""
+
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError:
+        start = raw_text.find("{")
+        end = raw_text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("Model response did not include JSON data.")
+        snippet = raw_text[start : end + 1]
+        return json.loads(snippet)
+
+
+def _short_description(text: str, limit: int = 140) -> str:
+    """Return a single-line excerpt for UI display."""
+
+    cleaned = re.sub(r"\s+", " ", text or "").strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return f"{cleaned[:limit].rstrip()}…"
+
+
+def _generate_project_builder_recommendations(
+    prompt: str,
+) -> tuple[list[dict[str, int]], dict[str, str], Optional[str]]:
+    """Call the OpenAI Responses API to map a project brief to catalog product ids."""
+
+    prompt_text = (prompt or "").strip()
+    if not prompt_text:
+        return [], {}, "Describe your project so the builder can help."
+
+    products = list(fetch_products())
+    if not products:
+        return [], {}, "No products are available to recommend right now."
+
+    catalog_slice = products
+    if PROJECT_BUILDER_CATALOG_LIMIT and PROJECT_BUILDER_CATALOG_LIMIT > 0:
+        catalog_slice = products[:PROJECT_BUILDER_CATALOG_LIMIT]
+
+    if _openai_client is None:
+        return (
+            [],
+            {},
+            "Set the OPENAI_API_KEY environment variable (or add openai_key.txt) to enable AI recommendations.",
+        )
+
+    catalog_payload = [
+        {
+            "id": int(prod["id"]),
+            "name": prod["name"],
+            "category": prod.get("category"),
+            "brand": prod.get("brand"),
+            "description": prod.get("description"),
+            "price": float(prod.get("price") or 0),
+            "inventory_count": int(prod.get("inventory_count") or 0),
+        }
+        for prod in catalog_slice
+    ]
+
+    message_payload = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "You are an electronics inventory planner that converts project descriptions into ready-to-order kits. "
+                        "Choose only product_id values that exist in catalog_data. "
+                        "Return STRICT JSON matching:"
+                        ' {"items":[{"product_id":int,"quantity":int,"notes":string}],'
+                        '  "insights":{"missing":string,"component_roles":string,"assembly":string}} '
+                        f"Quantities must be between 1 and {PROJECT_BUILDER_MAX_QUANTITY} and should respect inventory_count. "
+                        "Use the notes field on each item to describe why it matters or what it connects to. "
+                        "In insights, summarize what additional gear might be needed (\"missing\"), "
+                        "what each cluster of components does (\"component_roles\"), and high-level assembly steps (\"assembly\"). "
+                        "If the catalog cannot satisfy the prompt, respond with empty arrays and explain the gap in insights."
+                    ),
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": f"catalog_data={json.dumps(catalog_payload, separators=(',', ':'))}",
+                },
+                {"type": "input_text", "text": f"project_prompt={prompt_text}"},
+            ],
+        },
+    ]
+
+    try:
+        response = _openai_client.responses.create(model=OPENAI_MODEL, input=message_payload, temperature=0.2)
+    except Exception:
+        app.logger.exception("OpenAI request failed for the project builder.")
+        return [], {}, "We couldn't reach the AI recommender. Please try again."
+
+    raw_text = getattr(response, "output_text", "") or ""
+    if not raw_text:
+        try:
+            chunks: list[str] = []
+            for block in getattr(response, "output", []):
+                for segment in getattr(block, "content", []):
+                    if getattr(segment, "type", None) == "text" and getattr(segment, "text", None):
+                        chunks.append(segment.text)
+            raw_text = "".join(chunks)
+        except Exception:
+            raw_text = ""
+
+    if not raw_text:
+        return [], {}, "The AI assistant did not return any recommendations."
+
+    try:
+        parsed = _safe_load_recommendation_json(raw_text)
+    except ValueError as exc:
+        app.logger.warning("Unable to parse AI response: %s", exc)
+        return [], {}, "The AI response was formatted incorrectly. Please try again."
+
+    items: list[dict[str, int]] = []
+    product_lookup = {int(prod["id"]): prod for prod in catalog_slice}
+    for entry in parsed.get("items", []):
+        try:
+            product_id = int(entry.get("product_id") or entry.get("id"))
+            quantity = int(entry["quantity"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        if quantity <= 0:
+            continue
+        matched = product_lookup.get(product_id)
+        if not matched:
+            continue
+
+        available_stock = max(int(matched.get("inventory_count") or 0), 0)
+        if available_stock <= 0:
+            continue
+
+        normalized_qty = min(quantity, PROJECT_BUILDER_MAX_QUANTITY, available_stock)
+        if normalized_qty <= 0:
+            continue
+
+        note = str(entry.get("notes") or "").strip()
+        items.append({"product_id": product_id, "quantity": normalized_qty, "notes": note})
+
+    insights_raw = parsed.get("insights") or {}
+    insights = {
+        "missing": str(insights_raw.get("missing") or "").strip(),
+        "component_roles": str(insights_raw.get("component_roles") or "").strip(),
+        "assembly": str(insights_raw.get("assembly") or "").strip(),
+    }
+
+    if not items:
+        return [], insights, "No matching products were available for that project."
+
+    return items, insights, None
+
+
+def _hydrate_recommendations(recommendations: list[dict[str, int]]) -> tuple[list[dict[str, object]], float]:
+    """Return detailed product info for UI rendering plus the subtotal."""
+
+    if not recommendations:
+        return [], 0.0
+
+    product_ids = [item["product_id"] for item in recommendations]
+    products = fetch_products_by_ids(product_ids)
+    product_lookup = {int(prod["id"]): prod for prod in products}
+
+    hydrated: list[dict[str, object]] = []
+    subtotal = 0.0
+
+    for item in recommendations:
+        product = product_lookup.get(item["product_id"])
+        if not product:
+            continue
+        available_stock = max(int(product.get("inventory_count") or 0), 0)
+        quantity = min(int(item["quantity"]), available_stock)
+        if quantity <= 0:
+            continue
+
+        unit_price = float(product.get("price") or 0.0)
+        subtotal += unit_price * quantity
+        hydrated.append(
+            {
+                "id": int(product["id"]),
+                "product_id": int(product["id"]),
+                "name": product["name"],
+                "description": _short_description(str(product["description"])),
+                "unit_price": unit_price,
+                "quantity": quantity,
+                "notes": item.get("notes") or "",
+            }
+        )
+
+    return hydrated, subtotal
+
+
 @app.context_processor
 def inject_cart_meta() -> Dict[str, object]:
     """Expose cart statistics and user details to every template."""
@@ -283,7 +450,6 @@ def index() -> str:
     right_products = featured_products[left_count:]
 
     hero_content = random.choice(HERO_VARIANTS)
-    lab_notebook_content = random.choice(LAB_NOTEBOOK_VARIANTS)
 
     return render_template(
         "index.html",
@@ -291,8 +457,103 @@ def index() -> str:
         left_products=left_products,
         right_products=right_products,
         hero_content=hero_content,
-        lab_notebook_content=lab_notebook_content,
+        project_builder_intro=PROJECT_BUILDER_INTRO,
     )
+
+
+@app.post("/project-builder/recommend")
+def project_builder_recommend():
+    """Return AI-powered product recommendations for the provided project prompt."""
+
+    if not _current_user():
+        return (
+            jsonify({"success": False, "error": "Sign in to build a project cart.", "items": [], "subtotal": 0.0}),
+            401,
+        )
+
+    payload = request.get_json(silent=True) or {}
+    prompt = (payload.get("prompt") or "").strip()
+
+    recommendations, insights, error = _generate_project_builder_recommendations(prompt)
+    hydrated, subtotal = _hydrate_recommendations(recommendations)
+
+    success = bool(hydrated) and error is None
+    if not success and error is None:
+        error = "No matching products were found. Try refining your description."
+
+    return jsonify(
+        {
+            "success": success,
+            "error": None if success else error,
+            "insights": insights if success else {},
+            "items": hydrated,
+            "subtotal": round(subtotal, 2),
+        }
+    )
+
+
+@app.post("/project-builder/add-to-cart")
+def project_builder_add_to_cart():
+    """Add all recommended items to the current user's cart using the existing cart helpers."""
+
+    if not _current_user():
+        return jsonify({"success": False, "error": "Sign in to manage your cart."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        return jsonify({"success": False, "error": "No items were provided."}), 400
+
+    cart = _get_cart()
+    additions: list[dict[str, object]] = []
+    warnings: list[str] = []
+
+    for entry in raw_items:
+        try:
+            product_id = int(entry["product_id"])
+            quantity = int(entry["quantity"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        if quantity <= 0:
+            continue
+
+        product = get_product(product_id)
+        if not product:
+            warnings.append(f"Product {product_id} is no longer available.")
+            continue
+
+        available_stock = max(int(product.get("inventory_count") or 0), 0)
+        if available_stock <= 0:
+            warnings.append(f"{product['name']} is out of stock.")
+            continue
+
+        existing_qty = cart.get(product_id, 0)
+        space_left = max(available_stock - existing_qty, 0)
+        if space_left <= 0:
+            warnings.append(f"{product['name']} is already at its available quantity in your cart.")
+            continue
+
+        applied_qty = min(space_left, quantity)
+        if applied_qty <= 0:
+            continue
+
+        cart[product_id] = existing_qty + applied_qty
+        additions.append({"id": product_id, "name": product["name"], "quantity": applied_qty})
+
+    if additions:
+        _store_cart(cart)
+        return jsonify(
+            {
+                "success": True,
+                "items_added": additions,
+                "warnings": warnings,
+                "cart_item_count": sum(cart.values()),
+            }
+        )
+
+    error_message = warnings[-1] if warnings else "No products were added to your cart."
+    return jsonify({"success": False, "error": error_message, "warnings": warnings, "cart_item_count": sum(cart.values())})
 
 
 @app.route("/about")

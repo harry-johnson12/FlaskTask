@@ -85,31 +85,48 @@
                 </article>
 
                 <div class="landing-right">
-                    <div class="content-card highlight-card home-highlight">
-                        <h5 class="text-uppercase text-muted mb-3">{{ lab_notebook_content.title }}</h5>
+                    <div
+                        class="content-card highlight-card home-highlight ai-project-builder"
+                        id="ai-project-builder"
+                        data-recommend-url="{{ url_for('project_builder_recommend') }}"
+                        data-add-url="{{ url_for('project_builder_add_to_cart') }}"
+                    >
+                        <h5 class="text-uppercase text-muted mb-3">AI Project Builder</h5>
                         <p class="mb-4 text-muted">
-                            {{ lab_notebook_content.intro }}
+                            {{ project_builder_intro }}
                         </p>
-                        <ul class="coach-card-list mb-4">
-                            {% for entry in lab_notebook_content.entries %}
-                                <li>
-                                    <span class="coach-icon">{{ loop.index }}</span>
-                                    <div>
-                                        <strong>{{ entry.headline }}</strong>
-                                        <p class="text-muted mb-0">{{ entry.body }}</p>
-                                    </div>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                        <div class="avatar-row">
-                            <span class="avatar-dot"></span>
-                            <span class="avatar-dot"></span>
-                            <span class="avatar-dot"></span>
-                            <span class="text-muted">{{ lab_notebook_content.footer_text }}</span>
+                        <form id="project-builder-form" class="project-builder-form">
+                            <label for="project-builder-input" class="form-label text-muted small mb-2">Project description</label>
+                            <textarea
+                                id="project-builder-input"
+                                name="prompt"
+                                class="form-control project-builder-input"
+                                rows="4"
+                                placeholder="e.g., I need a line-following rover with Arduino control and LiPo power."
+                            ></textarea>
+                            <div class="d-flex flex-column flex-sm-row gap-3 mt-3">
+                                <button type="submit" class="btn btn-primary flex-grow-1" id="project-builder-submit">
+                                    Build my project
+                                </button>
+                            </div>
+                        </form>
+                        <div id="project-builder-status" class="builder-status text-muted small" role="status">
+                            Describe your project to generate a shopping list.
+                        </div>
+                        <div id="project-builder-results" class="builder-results" aria-live="polite"></div>
+                        <div id="project-builder-insights" class="builder-insights d-none" aria-live="polite"></div>
+                        <div class="builder-footer">
+                            <div>
+                                <span class="text-muted small d-block">Subtotal</span>
+                                <strong id="project-builder-subtotal">$0.00</strong>
+                            </div>
+                            <button type="button" class="btn btn-ghost w-100" id="project-builder-add-all" disabled>
+                                Add all to cart
+                            </button>
                         </div>
                     </div>
 
-                    <div class="landing-right-products">
+                    <div class="landing-right-products" id="builder-sibling-products">
                         {% if right_products %}
                             {% for product in right_products %}
                                 <div class="product-card featured-card home-featured-card">
@@ -182,5 +199,193 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const builderCard = document.getElementById("ai-project-builder");
+            if (!builderCard) return;
+
+            const recommendUrl = builderCard.dataset.recommendUrl;
+            const addUrl = builderCard.dataset.addUrl;
+            const rightProducts = document.getElementById("builder-sibling-products");
+            const form = document.getElementById("project-builder-form");
+            const input = document.getElementById("project-builder-input");
+            const submitBtn = document.getElementById("project-builder-submit");
+            const statusEl = document.getElementById("project-builder-status");
+            const resultsEl = document.getElementById("project-builder-results");
+            const subtotalEl = document.getElementById("project-builder-subtotal");
+            const addBtn = document.getElementById("project-builder-add-all");
+            const insightsEl = document.getElementById("project-builder-insights");
+            const currency = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
+            let currentItems = [];
+            let currentCartPayload = [];
+
+            const updateCartCount = (count) => {
+                const cartLink = document.querySelector(".cart-link");
+                if (!cartLink) return;
+                let badge = cartLink.querySelector(".cart-count");
+                if (count && count > 0) {
+                    if (!badge) {
+                        badge = document.createElement("span");
+                        badge.className = "cart-count";
+                        cartLink.appendChild(badge);
+                    }
+                    badge.textContent = count;
+                } else if (badge) {
+                    badge.remove();
+                }
+            };
+
+            const setStatus = (message, variant = "muted") => {
+                statusEl.textContent = message;
+                statusEl.dataset.variant = variant;
+            };
+
+            const toggleLoading = (loading) => {
+                submitBtn.disabled = loading;
+                input.disabled = loading;
+                builderCard.classList.toggle("is-loading", loading);
+            };
+
+            const renderInsights = (insights) => {
+                if (!insightsEl) return;
+                const pieces = ["missing", "component_roles", "assembly"]
+                    .map((key) => (insights?.[key] || "").trim())
+                    .filter(Boolean);
+                if (!pieces.length) {
+                    insightsEl.classList.add("d-none");
+                    insightsEl.innerHTML = "";
+                    return;
+                }
+
+                insightsEl.classList.remove("d-none");
+                insightsEl.innerHTML = "";
+                pieces.forEach((text) => {
+                    const paragraph = document.createElement("p");
+                    paragraph.textContent = text;
+                    insightsEl.appendChild(paragraph);
+                });
+            };
+
+            const renderResults = (items, subtotal, insights) => {
+                resultsEl.innerHTML = "";
+                currentItems = items;
+                currentCartPayload = items.map((item) => ({
+                    product_id: item.product_id || item.id,
+                    quantity: item.quantity,
+                }));
+
+                if (rightProducts) {
+                    rightProducts.classList.toggle("builder-hidden", items.length > 0);
+                }
+
+                if (!items.length) {
+                    subtotalEl.textContent = currency.format(0);
+                    addBtn.disabled = true;
+                    renderInsights({});
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                items.forEach((item) => {
+                    const row = document.createElement("div");
+                    row.className = "builder-result";
+                    const detail = document.createElement("div");
+                    const title = document.createElement("strong");
+                    title.textContent = item.name;
+                    const description = document.createElement("p");
+                    description.className = "text-muted mb-1";
+                    description.textContent = item.description || "";
+                    const meta = document.createElement("span");
+                    meta.className = "builder-price";
+                    meta.textContent = `${currency.format(item.unit_price)} × ${item.quantity}`;
+                    detail.appendChild(title);
+                    detail.appendChild(description);
+                    detail.appendChild(meta);
+                    if (item.notes) {
+                        const notes = document.createElement("p");
+                        notes.className = "builder-note";
+                        notes.textContent = item.notes;
+                        detail.appendChild(notes);
+                    }
+                    row.appendChild(detail);
+                    fragment.appendChild(row);
+                });
+
+                resultsEl.appendChild(fragment);
+                subtotalEl.textContent = currency.format(subtotal);
+                addBtn.disabled = false;
+                renderInsights(insights || {});
+            };
+
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const prompt = input.value.trim();
+                if (!prompt) {
+                    setStatus("Describe your project to get recommendations.", "warning");
+                    return;
+                }
+
+                toggleLoading(true);
+                setStatus("Thinking…", "muted");
+
+                try {
+                    const response = await fetch(recommendUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ prompt }),
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || "Unable to build a recommendation.");
+                    }
+
+                    renderResults(data.items || [], data.subtotal || 0, data.insights || {});
+                    setStatus("Review the recommended parts below.", "success");
+                } catch (error) {
+                    renderResults([], 0, {});
+                    const message = error && error.message ? error.message : "Something went wrong.";
+                    setStatus(message, "danger");
+                } finally {
+                    toggleLoading(false);
+                }
+            });
+
+            addBtn.addEventListener("click", async () => {
+                if (!currentCartPayload.length) {
+                    return;
+                }
+
+                const originalLabel = addBtn.textContent;
+                addBtn.textContent = "Adding…";
+                addBtn.disabled = true;
+                setStatus("Adding everything to your cart…", "muted");
+
+                try {
+                    const response = await fetch(addUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ items: currentCartPayload }),
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || "Could not update the cart.");
+                    }
+
+                    if (typeof data.cart_item_count === "number") {
+                        updateCartCount(data.cart_item_count);
+                    }
+                    setStatus("Added the recommended products to your cart.", "success");
+                } catch (error) {
+                    const message = error && error.message ? error.message : "Could not add the products to your cart.";
+                    setStatus(message, "danger");
+                } finally {
+                    addBtn.textContent = originalLabel;
+                    addBtn.disabled = !currentCartPayload.length;
+                }
+            });
+        });
+    </script>
 </body>
 </html>
