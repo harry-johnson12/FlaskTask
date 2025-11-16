@@ -6,7 +6,6 @@ from functools import wraps
 from typing import Optional, cast
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
     create_user,
@@ -19,6 +18,7 @@ from database import (
     get_user_by_username,
     init_db,
 )
+from security import hash_password, verify_password
 
 # Ensure tables exist before the admin panel starts serving requests.
 init_db()
@@ -83,7 +83,7 @@ def login():
         user = get_user_by_username(username) if username else None
         if not user or not user.get("is_admin"):
             flash("Invalid admin credentials.", "danger")
-        elif not check_password_hash(cast(str, user["password_hash"]), password):
+        elif not verify_password(password, cast(str, user["password_hash"])):
             flash("Invalid admin credentials.", "danger")
         else:
             session["admin_user_id"] = int(cast(int, user["id"]))
@@ -125,7 +125,7 @@ def dashboard():
                 flash("That username already exists.", "danger")
                 return redirect(url_for("dashboard"))
 
-            password_hash = generate_password_hash(password)
+            password_hash = hash_password(password)
             create_user(username, password_hash)
             flash("User account created.", "success")
             return redirect(url_for("dashboard"))

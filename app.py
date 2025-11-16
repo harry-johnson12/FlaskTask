@@ -23,7 +23,6 @@ from flask import (
     url_for,
 )
 
-from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers import Response
 from werkzeug.utils import secure_filename
 
@@ -52,6 +51,7 @@ from database import (
     upsert_product_review,
     upsert_recent_product_view,
 )
+from security import hash_password, verify_password
 
 # Ensure the database and seed data exist before serving.
 init_db()
@@ -608,7 +608,7 @@ def signup() -> str | Response:
             flash(password_error, "warning")
             return render_template("signup.html", username=username, next_url=next_url)
 
-        password_hash = generate_password_hash(password)
+        password_hash = hash_password(password)
         new_user_id = create_user(username, password_hash)
 
         # Preserve any in-flight guest cart.
@@ -640,7 +640,7 @@ def login() -> str | Response:
         next_url = request.args.get("next") or request.form.get("next")
 
         user = get_user_by_username(username) if username else None
-        if not user or not check_password_hash(cast(str, user["password_hash"]), password):
+        if not user or not verify_password(password, cast(str, user["password_hash"])):
             flash("Invalid username or password.", "danger")
             return render_template("login.html", username=username, next_url=next_url)
 

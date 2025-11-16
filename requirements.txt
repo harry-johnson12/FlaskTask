@@ -1,3 +1,4 @@
 Flask==2.3.3
 SQLAlchemy==2.0.31
 openai>=1.37.0
+bcrypt>=4.1.2
