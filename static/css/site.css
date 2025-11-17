@@ -87,6 +87,21 @@ code {
 .navbar-nav.ms-auto {
     margin-left: clamp(0.2rem, 1vw, 0.8rem) !important;
     flex: 1 1 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: clamp(0.35rem, 1vw, 0.7rem);
+    min-width: 0;
+}
+
+.navbar-nav.ms-auto > * {
+    flex: 0 0 auto;
+}
+
+.navbar-nav.ms-auto .navbar-search {
+    flex: 1 1 auto;
+    min-width: 12rem;
 }
 
 .admin-nav {
@@ -121,10 +136,10 @@ code {
 .navbar-search {
     position: relative;
     display: block;
-    flex: 1 1 520px;
-    width: 100%;
-    max-width: none;
-    min-width: 14rem;
+    flex: 1 1 clamp(14rem, 35vw, 28rem);
+    width: auto;
+    max-width: 32rem;
+    min-width: 9rem;
     margin: 0;
 }
 
@@ -197,11 +212,9 @@ code {
     .navbar .nav-link {
         white-space: nowrap;
     }
+}
 
-    .navbar-nav {
-        flex-wrap: nowrap;
-    }
-
+@media (min-width: 1200px) {
     .navbar-nav.gap-2 {
         gap: clamp(0.75rem, 1.2vw, 1.4rem) !important;
     }
@@ -240,15 +253,20 @@ code {
 }
 
 .user-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-block;
+    line-height: 1;
     padding: 0.4rem 1rem;
     border-radius: 999px;
     border: 1px solid var(--border-soft);
     background: rgba(16, 16, 20, 0.04);
     font-weight: 600;
     color: var(--ink-primary);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+    vertical-align: middle;
+    letter-spacing: 0.01em;
 }
 
 .page-shell {

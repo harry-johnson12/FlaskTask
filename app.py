@@ -19,6 +19,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -578,6 +579,12 @@ def returns_policy() -> str:
 def shipping_info() -> str:
     """Shipping and delivery details."""
     return render_template("shipping.html")
+
+
+@app.route("/service-worker.js")
+def service_worker() -> Response:
+    """Serve the PWA service worker script from the static directory."""
+    return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
 
 
 @app.route("/signup", methods=["GET", "POST"])

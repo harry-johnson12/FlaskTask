@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bcrypt
+from werkzeug.security import check_password_hash
 
 BCRYPT_ROUNDS = 12
 
@@ -24,6 +25,9 @@ def verify_password(password: str, stored_hash: str | bytes | None) -> bool:
         return False
 
     stored_hash_str = stored_hash.decode("utf-8") if isinstance(stored_hash, bytes) else str(stored_hash)
+
+    if stored_hash_str.startswith("scrypt:") or stored_hash_str.startswith("pbkdf2:"):
+        return check_password_hash(stored_hash_str, password)
 
     try:
         return bcrypt.checkpw(password.encode("utf-8"), stored_hash_str.encode("utf-8"))

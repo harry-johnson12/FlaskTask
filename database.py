@@ -36,6 +36,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql import Select
 
 from seed_data.product_catalog import PRODUCT_CATALOG
+from security import hash_password
 
 # --------------------------------------------------------------------------------------
 # SQLAlchemy setup
@@ -269,19 +270,16 @@ def seed_data() -> None:
                     )
                 )
 
-        seed_password_hash = (
-            "scrypt:32768:8:1$3AM6jKXzTPSQGvK8$0d815eb8dc822a7e62bf03a95ef480cc214f736c3fa6b4080696c33f17893be63e24e7aaa975"
-            "c98b4cf03fd51de4a17dfb884d3ef63992914099699db7b01512"
-        )
         seed_users = [
-            ("gearloom_lab", seed_password_hash, False, True),
-            ("field_ops", seed_password_hash, False, False),
-            ("grid_support", seed_password_hash, False, False),
-            ("circuit_artist", seed_password_hash, False, False),
-            ("render_stack", seed_password_hash, False, False),
-            ("ops_admin", seed_password_hash, True, False),
+            ("gearloom_lab", "seed-pass", False, True),
+            ("field_ops", "seed-pass", False, False),
+            ("grid_support", "seed-pass", False, False),
+            ("circuit_artist", "seed-pass", False, False),
+            ("render_stack", "seed-pass", False, False),
+            ("ops_admin", "seed-pass", True, False),
         ]
-        for username, password_hash, is_admin, is_seller in seed_users:
+        for username, raw_password, is_admin, is_seller in seed_users:
+            password_hash = hash_password(raw_password)
             user = session.execute(select(User).where(User.username == username)).scalar_one_or_none()
             if user:
                 user.password_hash = password_hash
