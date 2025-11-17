@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import wraps
 from typing import Optional, cast
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, flash, redirect, render_template, request, send_from_directory, session, url_for
 
 from database import (
     create_user,
@@ -18,6 +18,8 @@ from database import (
     get_user_by_username,
     init_db,
 )
+from security import hash_password, verify_password
+from app import _validate_password  # type: ignore  # reuse password policy
 from security import hash_password, verify_password
 
 # Ensure tables exist before the admin panel starts serving requests.
@@ -102,6 +104,12 @@ def logout():
     return redirect(url_for("login"))
 
 
+@admin_app.route("/service-worker.js")
+def admin_service_worker():
+    """Serve the shared PWA service worker for admin pages."""
+    return send_from_directory(admin_app.static_folder, "service-worker.js", mimetype="application/javascript")
+
+
 @admin_app.route("/", methods=["GET", "POST"])
 @admin_required
 def dashboard():
@@ -123,6 +131,11 @@ def dashboard():
                 return redirect(url_for("dashboard"))
             if get_user_by_username(username):
                 flash("That username already exists.", "danger")
+                return redirect(url_for("dashboard"))
+
+            password_error = _validate_password(username, password)
+            if password_error:
+                flash(password_error, "warning")
                 return redirect(url_for("dashboard"))
 
             password_hash = hash_password(password)

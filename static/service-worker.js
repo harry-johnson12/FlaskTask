@@ -1,7 +1,8 @@
-const CACHE_NAME = "gearloom-pwa-v2";
+const CACHE_NAME = "gearloom-pwa-v3";
 const STATIC_ASSETS = [
   "/static/css/site.css",
   "/static/img/logo.svg",
+  "/",
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,31 +27,21 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
-
-  if (request.method !== "GET") {
+  if (event.request.method !== "GET") {
     return;
   }
 
-  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
-    event.respondWith(
-      fetch(request).catch(() => caches.match("/"))
-    );
-    return;
-  }
-
-  if (STATIC_ASSETS.some((asset) => request.url.includes(asset))) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).catch(() => {
+        if (event.request.mode === "navigate") {
+          return caches.match("/");
         }
-        return fetch(request).then((response) => {
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned));
-          return response;
-        });
-      })
-    );
-  }
+        return undefined;
+      });
+    })
+  );
 });
