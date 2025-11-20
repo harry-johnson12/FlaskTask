@@ -4,11 +4,11 @@
             <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
             <span>Gearloom</span>
         </a>
-        <div class="navbar-nav align-items-center gap-3 flex-grow-1 justify-content-start w-100">
+        <div class="navbar-nav align-items-center gap-3 flex-grow-1 w-100 flex-nowrap">
             <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
                 About
             </a>
-            <form class="navbar-search {% if not current_user %}navbar-search-guest{% endif %}" role="search" method="get" action="{{ url_for('products') }}">
+            <form class="navbar-search" role="search" method="get" action="{{ url_for('products') }}">
                 <label class="visually-hidden" for="navbar-search-input">Search products</label>
                 <input
                     type="search"
@@ -42,6 +42,9 @@
                 </a>
                 <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
             {% else %}
+                <a class="nav-link {% if request.endpoint == 'seller_dashboard' %}active{% endif %}" href="{{ url_for('seller_dashboard') }}">
+                    Become a Seller
+                </a>
                 <a class="nav-link" href="{{ url_for('login') }}">Login</a>
                 <a class="nav-link" href="{{ url_for('signup') }}">Sign up</a>
             {% endif %}

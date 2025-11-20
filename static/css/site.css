@@ -104,6 +104,23 @@ code {
     min-width: 12rem;
 }
 
+.navbar-nav.flex-grow-1 {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    min-width: 0;
+}
+
+.navbar-nav.flex-grow-1 > * {
+    flex: 0 0 auto;
+}
+
+.navbar-nav.flex-grow-1 .navbar-search {
+    flex: 1 1 100%;
+}
+
 .admin-nav {
     margin-left: clamp(0.3rem, 1vw, 0.9rem);
 }
@@ -136,16 +153,11 @@ code {
 .navbar-search {
     position: relative;
     display: block;
-    flex: 1 1 clamp(14rem, 35vw, 28rem);
-    width: auto;
-    max-width: 32rem;
-    min-width: 9rem;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
     margin: 0;
-}
-
-.navbar-search-guest {
-    flex-basis: clamp(30rem, 80vw, 60rem);
-    max-width: 60rem;
 }
 
 .navbar-search-input {
@@ -212,9 +224,6 @@ code {
         min-width: 0;
     }
 
-    .navbar-search-guest {
-        max-width: none;
-    }
 }
 
 @media (min-width: 992px) {

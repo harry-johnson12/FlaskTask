@@ -23,96 +23,100 @@
                 {% endif %}
             {% endwith %}
 
-            <div class="hero-card mb-4">
-                <div class="badge-soft mb-3 text-uppercase">Account</div>
-                <h1 class="page-title h2 mb-2">Your orders</h1>
-                <p class="page-subtitle mb-0">Track reservations, shipping details, and kit allocation requests logged through Gearloom.</p>
-            </div>
+            <div class="row justify-content-center grid-tight">
+                <div class="col-xl-10">
+                    <div class="hero-card cart-hero text-start mb-4">
+                        <div class="badge-soft mb-3 text-uppercase">Account</div>
+                        <h1 class="page-title h2 mb-3">Your orders</h1>
+                        <p class="page-subtitle mb-0 text-start">Track reservations, shipping details, and kit allocation requests logged through Gearloom.</p>
+                    </div>
 
-            {% if orders %}
-                <div class="orders-list">
-                    {% for order in orders %}
-                        <details class="product-banner order-entry">
-                            <summary class="banner-header">
-                                <div>
-                                    <strong>{{ order['reference'] }}</strong>
-                                    <span class="text-muted small d-block">
-                                        Placed {{ order['created_at'].strftime('%b %d, %Y %H:%M') }}
-                                    </span>
-                                </div>
-                                <div class="text-end">
-                                    <span class="pill text-capitalize">{{ order['status'] }}</span>
-                                    <div class="fw-semibold mt-2">${{ "%.2f"|format(order['total_amount']) }}</div>
-                                </div>
-                            </summary>
-                            <div class="product-edit-card">
-                                <div class="row g-3 mb-4">
-                                    <div class="col-12 col-md-6">
-                                        <h2 class="h6 text-uppercase text-muted mb-2">Shipping to</h2>
-                                        <p class="mb-1 fw-semibold">{{ order['contact_name'] }}</p>
-                                        {% if order['contact_email'] %}
-                                            <p class="mb-1 text-muted small">{{ order['contact_email'] }}</p>
+                    {% if orders %}
+                        <div class="orders-list">
+                            {% for order in orders %}
+                                <details class="product-banner order-entry">
+                                    <summary class="banner-header">
+                                        <div>
+                                            <strong>{{ order['reference'] }}</strong>
+                                            <span class="text-muted small d-block">
+                                                Placed {{ order['created_at'].strftime('%b %d, %Y %H:%M') }}
+                                            </span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="pill text-capitalize">{{ order['status'] }}</span>
+                                            <div class="fw-semibold mt-2">${{ "%.2f"|format(order['total_amount']) }}</div>
+                                        </div>
+                                    </summary>
+                                    <div class="product-edit-card">
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-12 col-md-6">
+                                                <h2 class="h6 text-uppercase text-muted mb-2">Shipping to</h2>
+                                                <p class="mb-1 fw-semibold">{{ order['contact_name'] }}</p>
+                                                {% if order['contact_email'] %}
+                                                    <p class="mb-1 text-muted small">{{ order['contact_email'] }}</p>
+                                                {% endif %}
+                                                <p class="mb-0 text-muted small">
+                                                    {{ order['shipping_address']|replace('\n', '<br>')|safe }}<br>
+                                                    {{ order['shipping_city'] }}{% if order['shipping_region'] %}, {{ order['shipping_region'] }}{% endif %} {{ order['shipping_postal'] }}<br>
+                                                    {{ order['shipping_country'] }}
+                                                </p>
+                                            </div>
+                                            <div class="col-12 col-md-6">
+                                                <h2 class="h6 text-uppercase text-muted mb-2">Summary</h2>
+                                                <p class="mb-1 text-muted small">Seller: {{ order['seller_name'] or 'Assigned after review' }}</p>
+                                                <p class="mb-1 text-muted small">Items: {{ order['item_count'] }}</p>
+                                                {% if order['notes'] %}
+                                                    <p class="mb-0 text-muted small">Notes: {{ order['notes'] }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if order['items'] %}
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col">Product</th>
+                                                            <th scope="col" class="text-center">Quantity</th>
+                                                            <th scope="col" class="text-end">Unit price</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for item in order['items'] %}
+                                                            <tr>
+                                                                <td>
+                                                                    <div class="fw-semibold">{{ item['product_name'] }}</div>
+                                                                    <div class="text-muted small">
+                                                                        {% if item['product_sku'] %}SKU {{ item['product_sku'] }}{% else %}SKU pending{% endif %}
+                                                                    </div>
+                                                                </td>
+                                                                <td class="text-center">{{ item['quantity'] }}</td>
+                                                                <td class="text-end">${{ "%.2f"|format(item['unit_price']) }}</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        {% else %}
+                                            <p class="text-muted small mb-0">Line items will appear once operations finalizes allocations.</p>
                                         {% endif %}
-                                        <p class="mb-0 text-muted small">
-                                            {{ order['shipping_address']|replace('\n', '<br>')|safe }}<br>
-                                            {{ order['shipping_city'] }}{% if order['shipping_region'] %}, {{ order['shipping_region'] }}{% endif %} {{ order['shipping_postal'] }}<br>
-                                            {{ order['shipping_country'] }}
-                                        </p>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <h2 class="h6 text-uppercase text-muted mb-2">Summary</h2>
-                                        <p class="mb-1 text-muted small">Seller: {{ order['seller_name'] or 'Assigned after review' }}</p>
-                                        <p class="mb-1 text-muted small">Items: {{ order['item_count'] }}</p>
-                                        {% if order['notes'] %}
-                                            <p class="mb-0 text-muted small">Notes: {{ order['notes'] }}</p>
+                                        {% if order['status'] == 'pending' %}
+                                            <form method="post" action="{{ url_for('cancel_order', order_id=order['id']) }}" class="d-flex justify-content-end mt-3" onsubmit="return confirm('Cancel this reservation?');">
+                                                <button type="submit" class="btn btn-link text-danger px-0">Cancel reservation</button>
+                                            </form>
                                         {% endif %}
                                     </div>
-                                </div>
-                                {% if order['items'] %}
-                                    <div class="table-responsive">
-                                        <table class="table table-sm align-middle mb-0">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col">Product</th>
-                                                    <th scope="col" class="text-center">Quantity</th>
-                                                    <th scope="col" class="text-end">Unit price</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for item in order['items'] %}
-                                                    <tr>
-                                                        <td>
-                                                            <div class="fw-semibold">{{ item['product_name'] }}</div>
-                                                            <div class="text-muted small">
-                                                                {% if item['product_sku'] %}SKU {{ item['product_sku'] }}{% else %}SKU pending{% endif %}
-                                                            </div>
-                                                        </td>
-                                                        <td class="text-center">{{ item['quantity'] }}</td>
-                                                        <td class="text-end">${{ "%.2f"|format(item['unit_price']) }}</td>
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                {% else %}
-                                    <p class="text-muted small mb-0">Line items will appear once operations finalizes allocations.</p>
-                                {% endif %}
-                                {% if order['status'] == 'pending' %}
-                                    <form method="post" action="{{ url_for('cancel_order', order_id=order['id']) }}" class="d-flex justify-content-end mt-3" onsubmit="return confirm('Cancel this reservation?');">
-                                        <button type="submit" class="btn btn-link text-danger px-0">Cancel reservation</button>
-                                    </form>
-                                {% endif %}
-                            </div>
-                        </details>
-                    {% endfor %}
+                                </details>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="content-card empty-state text-center">
+                            <strong>No orders yet.</strong>
+                            <p class="text-muted mb-4">Reserve kits from your cart to see them listed here.</p>
+                            <a href="{{ url_for('products') }}" class="btn btn-primary">Browse catalogue</a>
+                        </div>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="content-card empty-state text-center">
-                    <strong>No orders yet.</strong>
-                    <p class="text-muted mb-4">Reserve kits from your cart to see them listed here.</p>
-                    <a href="{{ url_for('products') }}" class="btn btn-primary">Browse catalogue</a>
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 
