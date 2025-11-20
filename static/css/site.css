@@ -144,8 +144,8 @@ code {
 }
 
 .navbar-search-guest {
-    flex-basis: clamp(18.2rem, 45.5vw, 36.4rem);
-    max-width: 41.6rem;
+    flex-basis: clamp(30rem, 80vw, 60rem);
+    max-width: 60rem;
 }
 
 .navbar-search-input {
@@ -444,6 +444,7 @@ code {
     max-width: 48rem;
     margin: 0 auto clamp(1.4rem, 3vw, 2.2rem);
 }
+
 
 .btn {
     border-radius: var(--radius-sm);

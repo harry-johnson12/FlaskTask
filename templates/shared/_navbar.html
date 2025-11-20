@@ -4,7 +4,7 @@
             <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
             <span>Gearloom</span>
         </a>
-        <div class="navbar-nav align-items-center gap-3 flex-grow-1 justify-content-between">
+        <div class="navbar-nav align-items-center gap-3 flex-grow-1 justify-content-start w-100">
             <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
                 About
             </a>
