@@ -4,7 +4,7 @@
             <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Gearloom logo">
             <span>Gearloom</span>
         </a>
-        <div class="navbar-nav ms-auto align-items-center gap-2 w-100">
+        <div class="navbar-nav align-items-center gap-3 flex-grow-1 justify-content-between">
             <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
                 About
             </a>
@@ -37,7 +37,9 @@
                         Become a Seller
                     {% endif %}
                 </a>
-                <span class="user-pill" title="{{ current_user['username'] }}">{{ current_user['username']|replace(' ', '&nbsp;')|safe }}</span>
+                <a class="user-pill{% if request.endpoint == 'orders_history' %} active{% endif %}" href="{{ url_for('orders_history') }}" title="View your orders">
+                    {{ current_user['username']|replace(' ', '&nbsp;')|safe }}
+                </a>
                 <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
             {% else %}
                 <a class="nav-link" href="{{ url_for('login') }}">Login</a>
