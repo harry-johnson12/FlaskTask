@@ -78,13 +78,71 @@
                                     <span class="text-muted">Subtotal</span>
                                     <span class="display-6 fw-semibold">${{ "%.2f"|format(total) }}</span>
                                 </div>
-                                <p class="text-muted mb-0">Shipping and taxes calculated at checkout. We’ll reserve inventory for 24 hours.</p>
+                                <p class="text-muted mb-0">Shipping and taxes calculated at checkout. Operations reviews every reservation before confirming shipment.</p>
                             </div>
 
-                            <div class="d-flex flex-wrap gap-3 mt-4">
-                                <button class="btn btn-primary" type="button" disabled>Checkout opens soon</button>
-                                <a href="{{ url_for('products') }}" class="btn btn-ghost">Continue shopping</a>
-                                <form action="{{ url_for('clear_cart') }}" method="post" class="ms-auto">
+                            <div class="content-card checkout-panel mt-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h2 class="h5 mb-0">Checkout</h2>
+                                    <span class="pill">No payment collected</span>
+                                </div>
+                                <p class="text-muted small mb-4">Operations will follow up manually once allocations are approved.</p>
+                                <form action="{{ url_for('checkout') }}" method="post" class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="contact_name">Full name</label>
+                                        <input type="text" class="form-control" id="contact_name" name="contact_name" value="{{ checkout_defaults.get('contact_name', '') }}" required>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="contact_email">Email</label>
+                                        <input type="email" class="form-control" id="contact_email" name="contact_email" value="{{ checkout_defaults.get('contact_email', '') }}" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="shipping_address1">Shipping address</label>
+                                        <input type="text" class="form-control" id="shipping_address1" name="shipping_address1" value="{{ checkout_defaults.get('shipping_address1', '') }}" placeholder="Street address" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="shipping_address2">Address line 2 <span class="text-muted">(optional)</span></label>
+                                        <input type="text" class="form-control" id="shipping_address2" name="shipping_address2" value="{{ checkout_defaults.get('shipping_address2', '') }}" placeholder="Suite, building, etc.">
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label" for="shipping_city">City</label>
+                                        <input type="text" class="form-control" id="shipping_city" name="shipping_city" value="{{ checkout_defaults.get('shipping_city', '') }}" required>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label" for="shipping_region">State / Region</label>
+                                        <select class="form-select" id="shipping_region" name="shipping_region">
+                                            <option value="" {% if not checkout_defaults.get('shipping_region') %}selected{% endif %}>Select a region</option>
+                                            {% for option in region_options %}
+                                                <option value="{{ option }}" {% if checkout_defaults.get('shipping_region') == option %}selected{% endif %}>{{ option }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label" for="shipping_postal">Postal code</label>
+                                        <input type="text" class="form-control" id="shipping_postal" name="shipping_postal" value="{{ checkout_defaults.get('shipping_postal', '') }}" required>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" for="shipping_country">Country</label>
+                                        <select class="form-select" id="shipping_country" name="shipping_country" required>
+                                            <option value="" disabled {% if not checkout_defaults.get('shipping_country') %}selected{% endif %}>Select a country</option>
+                                            {% for option in country_options %}
+                                                <option value="{{ option }}" {% if checkout_defaults.get('shipping_country') == option %}selected{% endif %}>{{ option }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="order_notes">Notes for operations <span class="text-muted">(optional)</span></label>
+                                        <textarea class="form-control" id="order_notes" name="order_notes" rows="3" placeholder="Dock details, preferred carrier, etc.">{{ checkout_defaults.get('order_notes', '') }}</textarea>
+                                    </div>
+                                    <div class="col-12 d-flex flex-wrap gap-3 align-items-center">
+                                        <button type="submit" class="btn btn-primary">Place order</button>
+                                        <a href="{{ url_for('products') }}" class="btn btn-ghost">Continue shopping</a>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-3">
+                                <form action="{{ url_for('clear_cart') }}" method="post">
                                     <button type="submit" class="btn btn-link text-muted">Clear cart</button>
                                 </form>
                             </div>

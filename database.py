@@ -36,7 +36,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql import Select
 
 from seed_data.product_catalog import PRODUCT_CATALOG
-from security import hash_password
+from security import decrypt_sensitive_value, encrypt_sensitive_value, hash_password
 
 # --------------------------------------------------------------------------------------
 # SQLAlchemy setup
@@ -127,6 +127,13 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending", server_default="pending")
     total_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0, server_default="0")
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    contact_name: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    contact_email: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    shipping_address: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    shipping_city: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    shipping_region: Mapped[Optional[str]] = mapped_column(String)
+    shipping_postal: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
+    shipping_country: Mapped[str] = mapped_column(String, nullable=False, default="United States", server_default="United States")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.current_timestamp())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp(), onupdate=func.current_timestamp()
@@ -134,6 +141,23 @@ class Order(Base):
 
     user: Mapped[Optional[User]] = relationship("User", back_populates="orders", foreign_keys=[user_id])
     seller: Mapped[Optional[Seller]] = relationship("Seller", back_populates="orders")
+    items: Mapped[list["OrderItem"]] = relationship(
+        "OrderItem", back_populates="order", cascade="all, delete-orphan"
+    )
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"))
+    product_name: Mapped[str] = mapped_column(String, nullable=False)
+    product_sku: Mapped[Optional[str]] = mapped_column(String)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False, default=0, server_default="0")
+
+    order: Mapped[Order] = relationship("Order", back_populates="items")
 
 
 class UserCartItem(Base):
@@ -237,12 +261,13 @@ def init_db() -> None:
 def seed_data() -> None:
     """Populate the catalogue with real products so the UI has content."""
 
-    target_version = 9
+    target_version = 10
     with engine.begin() as connection:
         current_version = connection.exec_driver_sql("PRAGMA user_version").scalar() or 0
 
     if current_version < target_version:
         with engine.begin() as connection:
+            connection.exec_driver_sql("DROP TABLE IF EXISTS order_items")
             connection.exec_driver_sql("DROP TABLE IF EXISTS orders")
             connection.exec_driver_sql("DROP TABLE IF EXISTS customers")
         Base.metadata.create_all(bind=engine)
@@ -254,6 +279,7 @@ def seed_data() -> None:
 
         if needs_refresh:
             session.execute(delete(ProductReview))
+            session.execute(delete(OrderItem))
             session.execute(delete(Order))
             session.execute(delete(Product))
             for product in PRODUCT_CATALOG:
@@ -698,6 +724,14 @@ def create_order(
     status: str = "pending",
     total_amount: float = 0.0,
     notes: Optional[str] = None,
+    contact_name: str = "",
+    contact_email: str = "",
+    shipping_address: str = "",
+    shipping_city: str = "",
+    shipping_region: Optional[str] = None,
+    shipping_postal: str = "",
+    shipping_country: str = "United States",
+    items: Optional[Iterable[Mapping[str, object]]] = None,
 ) -> int:
     """Insert an order snapshot for manual fulfilment tracking."""
 
@@ -708,9 +742,41 @@ def create_order(
             status=status,
             total_amount=total_amount,
             notes=notes,
+            contact_name=encrypt_sensitive_value(contact_name or ""),
+            contact_email=encrypt_sensitive_value(contact_email or ""),
+            shipping_address=encrypt_sensitive_value(shipping_address or ""),
+            shipping_city=encrypt_sensitive_value(shipping_city or ""),
+            shipping_region=encrypt_sensitive_value(shipping_region) if shipping_region else None,
+            shipping_postal=encrypt_sensitive_value(shipping_postal or ""),
+            shipping_country=encrypt_sensitive_value(shipping_country or ""),
         )
         session.add(order)
         session.flush()
+        if items:
+            for item in items:
+                product_name = str(item.get("product_name") or "").strip()
+                if not product_name:
+                    continue
+                try:
+                    quantity = int(item.get("quantity", 0))
+                except (TypeError, ValueError):
+                    continue
+                if quantity <= 0:
+                    continue
+                try:
+                    unit_price = float(item.get("unit_price", 0.0))
+                except (TypeError, ValueError):
+                    unit_price = 0.0
+                session.add(
+                    OrderItem(
+                        order_id=int(order.id),
+                        product_id=item.get("product_id"),
+                        product_name=product_name,
+                        product_sku=item.get("product_sku"),
+                        quantity=quantity,
+                        unit_price=unit_price,
+                    )
+                )
         return int(order.id)
 
 
@@ -722,6 +788,13 @@ def update_order(
     notes: Optional[str] = None,
     seller_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    contact_name: Optional[str] = None,
+    contact_email: Optional[str] = None,
+    shipping_address: Optional[str] = None,
+    shipping_city: Optional[str] = None,
+    shipping_region: Optional[str] = None,
+    shipping_postal: Optional[str] = None,
+    shipping_country: Optional[str] = None,
 ) -> None:
     """Update the provided order details."""
 
@@ -739,6 +812,20 @@ def update_order(
             order.seller_id = seller_id
         if user_id is not None:
             order.user_id = user_id
+        if contact_name is not None:
+            order.contact_name = encrypt_sensitive_value(contact_name)
+        if contact_email is not None:
+            order.contact_email = encrypt_sensitive_value(contact_email)
+        if shipping_address is not None:
+            order.shipping_address = encrypt_sensitive_value(shipping_address)
+        if shipping_city is not None:
+            order.shipping_city = encrypt_sensitive_value(shipping_city)
+        if shipping_region is not None:
+            order.shipping_region = encrypt_sensitive_value(shipping_region) if shipping_region else None
+        if shipping_postal is not None:
+            order.shipping_postal = encrypt_sensitive_value(shipping_postal)
+        if shipping_country is not None:
+            order.shipping_country = encrypt_sensitive_value(shipping_country)
 
 
 def delete_order(order_id: int) -> None:
@@ -746,6 +833,92 @@ def delete_order(order_id: int) -> None:
 
     with session_scope() as session:
         session.execute(delete(Order).where(Order.id == order_id))
+
+
+def _order_items_for_ids(session: Session, order_ids: Iterable[int]) -> dict[int, list[dict[str, object]]]:
+    normalized_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_id in order_ids:
+        try:
+            oid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if oid in seen:
+            continue
+        normalized_ids.append(oid)
+        seen.add(oid)
+    if not normalized_ids:
+        return {}
+    rows = (
+        session.execute(
+            select(
+                OrderItem.order_id,
+                OrderItem.product_id,
+                OrderItem.product_name,
+                OrderItem.product_sku,
+                OrderItem.quantity,
+                OrderItem.unit_price,
+            )
+            .where(OrderItem.order_id.in_(normalized_ids))
+            .order_by(OrderItem.id.asc())
+        )
+        .mappings()
+        .all()
+    )
+    lookup: dict[int, list[dict[str, object]]] = {}
+    for row in rows:
+        order_id = int(row["order_id"])
+        lookup.setdefault(order_id, []).append(
+            {
+                "product_id": row["product_id"],
+                "product_name": row["product_name"],
+                "product_sku": row["product_sku"],
+                "quantity": int(row["quantity"]),
+                "unit_price": float(row["unit_price"]),
+            }
+        )
+    return lookup
+
+
+def format_order_reference(order_id: int) -> str:
+    """Return a human-friendly reference for an internal order id."""
+
+    try:
+        oid = int(order_id)
+    except (TypeError, ValueError):
+        oid = 0
+    return f"Reservation GL-{oid:05d}"
+
+
+def _hydrate_orders(rows: list[Mapping[str, object]], session: Session) -> list[dict[str, object]]:
+    """Attach decrypted contact details and line items to raw order rows."""
+
+    if not rows:
+        return []
+
+    order_ids = [int(row["id"]) for row in rows]
+    item_lookup = _order_items_for_ids(session, order_ids)
+    hydrated: list[dict[str, object]] = []
+
+    for row in rows:
+        payload = dict(row)
+        oid = int(payload["id"])
+        items = item_lookup.get(oid, [])
+        payload["items"] = items
+        payload["item_count"] = sum(int(item["quantity"]) for item in items)
+        payload["reference"] = format_order_reference(oid)
+        payload["contact_name"] = decrypt_sensitive_value(payload.get("contact_name"))
+        payload["contact_email"] = decrypt_sensitive_value(payload.get("contact_email"))
+        payload["shipping_address"] = decrypt_sensitive_value(payload.get("shipping_address"))
+        payload["shipping_city"] = decrypt_sensitive_value(payload.get("shipping_city"))
+        if payload.get("shipping_region") is not None:
+            payload["shipping_region"] = decrypt_sensitive_value(payload.get("shipping_region"))
+        else:
+            payload["shipping_region"] = ""
+        payload["shipping_postal"] = decrypt_sensitive_value(payload.get("shipping_postal"))
+        payload["shipping_country"] = decrypt_sensitive_value(payload.get("shipping_country"))
+        hydrated.append(payload)
+    return hydrated
 
 
 def fetch_orders() -> list[Mapping[str, object]]:
@@ -759,6 +932,13 @@ def fetch_orders() -> list[Mapping[str, object]]:
             Order.status,
             Order.total_amount,
             Order.notes,
+            Order.contact_name,
+            Order.contact_email,
+            Order.shipping_address,
+            Order.shipping_city,
+            Order.shipping_region,
+            Order.shipping_postal,
+            Order.shipping_country,
             Order.created_at,
             Order.updated_at,
             Seller.id.label("seller_id"),
@@ -771,7 +951,41 @@ def fetch_orders() -> list[Mapping[str, object]]:
     )
     with session_scope() as session:
         rows = session.execute(stmt).mappings().all()
-        return [dict(row) for row in rows]
+        return _hydrate_orders(rows, session)
+
+
+def fetch_orders_for_user(user_id: int) -> list[Mapping[str, object]]:
+    """Return all orders tied to a specific user."""
+
+    order_user = aliased(User)
+    stmt = (
+        select(
+            Order.id,
+            Order.user_id,
+            Order.status,
+            Order.total_amount,
+            Order.notes,
+            Order.contact_name,
+            Order.contact_email,
+            Order.shipping_address,
+            Order.shipping_city,
+            Order.shipping_region,
+            Order.shipping_postal,
+            Order.shipping_country,
+            Order.created_at,
+            Order.updated_at,
+            Seller.id.label("seller_id"),
+            Seller.store_name.label("seller_name"),
+            order_user.username.label("user_username"),
+        )
+        .join(Seller, Order.seller, isouter=True)
+        .join(order_user, Order.user_id == order_user.id, isouter=True)
+        .where(Order.user_id == user_id)
+        .order_by(Order.id.desc())
+    )
+    with session_scope() as session:
+        rows = session.execute(stmt).mappings().all()
+        return _hydrate_orders(rows, session)
 
 
 def get_order(order_id: int) -> Optional[Mapping[str, object]]:
@@ -783,14 +997,22 @@ def get_order(order_id: int) -> Optional[Mapping[str, object]]:
         Order.status,
         Order.total_amount,
         Order.notes,
+        Order.contact_name,
+        Order.contact_email,
+        Order.shipping_address,
+        Order.shipping_city,
+        Order.shipping_region,
+        Order.shipping_postal,
+        Order.shipping_country,
         Order.created_at,
         Order.updated_at,
         Order.seller_id,
     ).where(Order.id == order_id)
 
     with session_scope() as session:
-        row = session.execute(stmt).mappings().first()
-        return dict(row) if row else None
+        rows = session.execute(stmt).mappings().all()
+        hydrated = _hydrate_orders(rows, session)
+        return hydrated[0] if hydrated else None
 
 
 def delete_product(product_id: int) -> None:

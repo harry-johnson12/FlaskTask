@@ -30,6 +30,7 @@ from werkzeug.utils import secure_filename
 from openai import OpenAI
 
 from database import (
+    create_order,
     create_user,
     create_seller_profile,
     delete_product,
@@ -39,6 +40,9 @@ from database import (
     fetch_products_by_ids,
     fetch_recent_products_for_user,
     fetch_user_cart,
+    format_order_reference,
+    fetch_orders_for_user,
+    get_order,
     get_product,
     get_product_rating_summary,
     get_seller_by_user_id,
@@ -48,6 +52,7 @@ from database import (
     init_db,
     insert_product,
     replace_user_cart,
+    update_order,
     update_product,
     upsert_product_review,
     upsert_recent_product_view,
@@ -62,6 +67,86 @@ app.config["SECRET_KEY"] = "dev-secret-key-change-me"
 UPLOAD_DIR = Path(__file__).with_name("static").joinpath("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+CHECKOUT_FORM_SESSION_KEY = "checkout_form_data"
+CHECKOUT_FORM_FIELDS = (
+    "contact_name",
+    "contact_email",
+    "shipping_address1",
+    "shipping_address2",
+    "shipping_city",
+    "shipping_region",
+    "shipping_postal",
+    "shipping_country",
+    "order_notes",
+)
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+COUNTRY_OPTIONS = [
+    "United States",
+    "Canada",
+    "United Kingdom",
+    "Germany",
+    "France",
+    "Australia",
+    "New Zealand",
+    "Singapore",
+    "Japan",
+    "India",
+    "Brazil",
+    "Mexico",
+]
+REGION_OPTIONS = [
+    "Alabama",
+    "Alaska",
+    "Arizona",
+    "Arkansas",
+    "California",
+    "Colorado",
+    "Connecticut",
+    "Delaware",
+    "District of Columbia",
+    "Florida",
+    "Georgia",
+    "Hawaii",
+    "Idaho",
+    "Illinois",
+    "Indiana",
+    "Iowa",
+    "Kansas",
+    "Kentucky",
+    "Louisiana",
+    "Maine",
+    "Maryland",
+    "Massachusetts",
+    "Michigan",
+    "Minnesota",
+    "Mississippi",
+    "Missouri",
+    "Montana",
+    "Nebraska",
+    "Nevada",
+    "New Hampshire",
+    "New Jersey",
+    "New Mexico",
+    "New York",
+    "North Carolina",
+    "North Dakota",
+    "Ohio",
+    "Oklahoma",
+    "Oregon",
+    "Pennsylvania",
+    "Rhode Island",
+    "South Carolina",
+    "South Dakota",
+    "Tennessee",
+    "Texas",
+    "Utah",
+    "Vermont",
+    "Virginia",
+    "Washington",
+    "West Virginia",
+    "Wisconsin",
+    "Wyoming",
+]
 
 # OpenAI configuration for the AI Project Builder feature.
 OPENAI_KEY_FILE = Path(__file__).with_name("openai_key.txt")
@@ -167,6 +252,13 @@ def _form_text(field_name: str, default: str = "") -> str:
     return raw_value.strip()
 
 
+def _is_valid_email(value: str) -> bool:
+    """Basic validation to ensure the string resembles an email address."""
+    if not value:
+        return False
+    return bool(EMAIL_PATTERN.match(value))
+
+
 def _current_user() -> Mapping[str, object] | None:
     """Return the authenticated user dict, clearing stale sessions if needed."""
     user_id = session.get("user_id")
@@ -224,6 +316,105 @@ def _store_cart(cart: Dict[int, int]) -> None:
     else:
         session["cart"] = {}
     session.modified = True
+
+
+def _cart_snapshot(cart: Optional[Dict[int, int]] = None) -> tuple[list[dict[str, object]], float]:
+    """Return hydrated cart items with pricing."""
+
+    active_cart = dict(cart) if cart is not None else _get_cart()
+    if not active_cart:
+        return [], 0.0
+
+    ordered_ids: list[int] = []
+    quantity_lookup: Dict[int, int] = {}
+    for raw_product_id, raw_quantity in active_cart.items():
+        try:
+            product_id = int(raw_product_id)
+            quantity = int(raw_quantity)
+        except (TypeError, ValueError):
+            continue
+        if product_id not in quantity_lookup:
+            ordered_ids.append(product_id)
+        quantity_lookup[product_id] = quantity_lookup.get(product_id, 0) + max(0, quantity)
+
+    products = fetch_products_by_ids(ordered_ids)
+    product_lookup = {int(product["id"]): product for product in products}
+    items: list[dict[str, object]] = []
+    total = 0.0
+
+    for product_id in ordered_ids:
+        product = product_lookup.get(product_id)
+        if not product:
+            continue
+        quantity = max(0, quantity_lookup.get(product_id, 0))
+        if quantity <= 0:
+            continue
+        price = float(product["price"])
+        line_total = price * quantity
+        total += line_total
+        items.append(
+            {
+                "product": product,
+                "quantity": quantity,
+                "line_total": line_total,
+            }
+        )
+
+    return items, round(total, 2)
+
+
+def _checkout_form_defaults() -> dict[str, str]:
+    """Return the most recent checkout form attempt or sensible defaults."""
+
+    defaults = {field: "" for field in CHECKOUT_FORM_FIELDS}
+    saved = session.pop(CHECKOUT_FORM_SESSION_KEY, None)
+    if isinstance(saved, dict):
+        for field in CHECKOUT_FORM_FIELDS:
+            value = saved.get(field)
+            if value is None:
+                continue
+            defaults[field] = str(value)
+
+    user = _current_user()
+    if user and not defaults["contact_name"]:
+        defaults["contact_name"] = str(user["username"])
+    if not defaults["shipping_country"]:
+        defaults["shipping_country"] = "United States"
+    return defaults
+
+
+def _remember_checkout_form_submission() -> None:
+    """Persist the latest checkout form values so the template can refill them."""
+
+    session[CHECKOUT_FORM_SESSION_KEY] = {
+        field: request.form.get(field, "") for field in CHECKOUT_FORM_FIELDS
+    }
+
+
+def _restock_order_inventory(order: Mapping[str, object]) -> None:
+    """Return reserved quantities back to the catalogue."""
+
+    items = order.get("items") or []
+    if not isinstance(items, list):
+        return
+
+    for entry in items:
+        if not isinstance(entry, Mapping):
+            continue
+        product_id = entry.get("product_id")
+        quantity = entry.get("quantity", 0)
+        try:
+            pid = int(product_id)
+            qty = int(quantity)
+        except (TypeError, ValueError):
+            continue
+        if pid <= 0 or qty <= 0:
+            continue
+        product = get_product(pid)
+        if not product:
+            continue
+        current_inventory = int(product.get("inventory_count") or 0)
+        update_product(pid, inventory_count=current_inventory + qty)
 
 
 def _safe_load_recommendation_json(raw_text: str) -> dict[str, Any]:
@@ -995,30 +1186,176 @@ def seller_dashboard() -> str | Response:
 @app.route("/cart")
 def cart() -> str:
     """Display the current basket with totals."""
-    cart = _get_cart()
-    product_ids = list(cart.keys())
-    items = []
-    total = 0.0
+    items, total = _cart_snapshot()
+    checkout_defaults = _checkout_form_defaults()
+    return render_template(
+        "cart.html",
+        items=items,
+        total=total,
+        checkout_defaults=checkout_defaults,
+        country_options=COUNTRY_OPTIONS,
+        region_options=REGION_OPTIONS,
+    )
 
-    if product_ids:
-        products = fetch_products_by_ids(product_ids)
-        lookup = {product["id"]: product for product in products}
-        for product_id in product_ids:
-            product = lookup.get(product_id)
-            if not product:
-                continue
-            quantity = cart[product_id]
-            line_total = float(str(product["price"])) * quantity
-            total += line_total
-            items.append(
-                {
-                    "product": product,
-                    "quantity": quantity,
-                    "line_total": line_total,
-                }
+
+@app.route("/orders")
+def orders_history() -> str:
+    """Allow authenticated users to review their recent orders."""
+    user_id = _current_user_id()
+    if not user_id:
+        flash("Sign in to view your orders.", "warning")
+        return redirect(url_for("login", next=url_for("orders_history")))
+
+    orders = fetch_orders_for_user(user_id)
+    return render_template("orders.html", orders=orders)
+
+
+@app.post("/orders/<int:order_id>/cancel")
+def cancel_order(order_id: int):
+    """Allow a user to cancel their pending reservation."""
+
+    user_id = _current_user_id()
+    if not user_id:
+        flash("Sign in to manage orders.", "warning")
+        return redirect(url_for("login", next=url_for("orders_history")))
+
+    order = get_order(order_id)
+    if not order or int(order.get("user_id") or 0) != user_id:
+        flash("We couldn't find that order.", "danger")
+        return redirect(url_for("orders_history"))
+
+    if order.get("status") != "pending":
+        flash("Only pending reservations can be canceled.", "warning")
+        return redirect(url_for("orders_history"))
+
+    update_order(order_id, status="cancelled")
+    _restock_order_inventory(order)
+    reference = order.get("reference") or format_order_reference(order_id)
+    flash(f"{reference} was canceled and inventory returned to stock.", "info")
+    return redirect(url_for("orders_history"))
+
+
+@app.post("/checkout")
+def checkout():
+    """Capture checkout details and persist an order snapshot."""
+
+    user_id = _current_user_id()
+    if not user_id:
+        flash("Sign in to submit an order.", "warning")
+        return redirect(url_for("login", next=url_for("cart")))
+
+    cart = _get_cart()
+    items, total = _cart_snapshot(cart)
+    if not items:
+        flash("Add at least one product to your cart before checking out.", "warning")
+        return redirect(url_for("cart"))
+
+    contact_name = _form_text("contact_name")
+    contact_email = _form_text("contact_email")
+    address_line_one = _form_text("shipping_address1")
+    address_line_two = _form_text("shipping_address2")
+    shipping_city = _form_text("shipping_city")
+    shipping_region = _form_text("shipping_region")
+    shipping_postal = _form_text("shipping_postal")
+    shipping_country = _form_text("shipping_country") or "United States"
+    order_notes = _form_text("order_notes")
+
+    errors: list[str] = []
+    if not contact_name:
+        errors.append("Enter the recipient name so we can address the shipment.")
+    if not contact_email or not _is_valid_email(contact_email):
+        errors.append("Provide a valid email address for order updates.")
+    if not address_line_one:
+        errors.append("Add a shipping address line.")
+    if not shipping_city:
+        errors.append("Specify the city for delivery.")
+    if not shipping_postal:
+        errors.append("Postal or ZIP code is required.")
+    if not shipping_country:
+        errors.append("Include the destination country.")
+
+    if errors:
+        _remember_checkout_form_submission()
+        for message in errors:
+            flash(message, "warning")
+        return redirect(url_for("cart"))
+
+    inventory_messages: list[str] = []
+    for entry in items:
+        product = entry["product"]
+        product_id = int(product["id"])
+        available_stock = int(product.get("inventory_count") or 0)
+        requested = int(entry["quantity"])
+        if available_stock <= 0:
+            cart.pop(product_id, None)
+            inventory_messages.append(f"{product['name']} is no longer in stock and was removed from your cart.")
+        elif requested > available_stock:
+            cart[product_id] = available_stock
+            inventory_messages.append(
+                f"{product['name']} has only {available_stock} in stock. Your cart was updated to the maximum."
             )
 
-    return render_template("cart.html", items=items, total=total)
+    if inventory_messages:
+        _store_cart(cart)
+        _remember_checkout_form_submission()
+        for message in inventory_messages:
+            flash(message, "warning")
+        flash("Review the updated cart before checking out.", "warning")
+        return redirect(url_for("cart"))
+
+    seller_ids: set[int] = set()
+    order_items_payload: list[dict[str, object]] = []
+    for entry in items:
+        product = entry["product"]
+        quantity = int(entry["quantity"])
+        try:
+            seller_value = product.get("seller_id")
+            if seller_value is not None:
+                seller_ids.add(int(seller_value))
+        except (TypeError, ValueError):
+            pass
+        order_items_payload.append(
+            {
+                "product_id": int(product["id"]),
+                "product_name": str(product["name"]),
+                "product_sku": product.get("sku"),
+                "quantity": quantity,
+                "unit_price": float(product["price"]),
+            }
+        )
+
+    shipping_address = "\n".join(line for line in [address_line_one, address_line_two] if line)
+    seller_id_value = seller_ids.pop() if len(seller_ids) == 1 else None
+    total_amount = round(total, 2)
+
+    order_id = create_order(
+        user_id=user_id,
+        seller_id=seller_id_value,
+        status="pending",
+        total_amount=total_amount,
+        notes=order_notes or None,
+        contact_name=contact_name,
+        contact_email=contact_email,
+        shipping_address=shipping_address,
+        shipping_city=shipping_city,
+        shipping_region=shipping_region or None,
+        shipping_postal=shipping_postal,
+        shipping_country=shipping_country,
+        items=order_items_payload,
+    )
+
+    for entry in items:
+        product = entry["product"]
+        product_id = int(product["id"])
+        available_stock = int(product.get("inventory_count") or 0)
+        new_inventory = max(0, available_stock - int(entry["quantity"]))
+        update_product(product_id, inventory_count=new_inventory)
+
+    _store_cart({})
+    session.pop(CHECKOUT_FORM_SESSION_KEY, None)
+    order_reference = format_order_reference(order_id)
+    flash(f"{order_reference} received. Operations will follow up with next steps soon.", "success")
+    return redirect(url_for("cart"))
 
 
 @app.post("/cart/update/<int:product_id>")

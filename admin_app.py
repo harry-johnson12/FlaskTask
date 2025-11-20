@@ -11,6 +11,7 @@ from database import (
     create_user,
     delete_product,
     delete_user,
+    fetch_orders,
     fetch_seller_products,
     fetch_sellers,
     fetch_users,
@@ -191,9 +192,12 @@ def dashboard():
             }
         )
 
+    orders = fetch_orders()
+
     return render_template(
         "admin.html",
         user_cards=user_cards,
+        orders=orders,
     )
 
 

@@ -67,13 +67,84 @@
                 <div class="col-12 col-xl-6 mb-4 mb-xl-0">
                     <div class="content-card h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 mb-0">Recent orders</h2>
-                            <span class="pill">Not yet available</span>
+                            <h2 class="h5 mb-0">Orders</h2>
+                            <span class="pill">{{ orders|length }} on file</span>
                         </div>
-                        <div class="empty-state flex-grow-1 d-flex flex-column justify-content-center mt-4">
-                            <strong>Order tracking is coming soon.</strong>
-                            <p class="text-muted mb-0">This area will populate once manual order logging ships.</p>
-                        </div>
+                        {% if orders %}
+                            <div class="orders-list">
+                                {% for order in orders %}
+                                    <details class="product-banner order-entry">
+                                        <summary class="banner-header">
+                                            <div>
+                                                <strong>{{ order['reference'] }}</strong>
+                                                <span class="text-muted small d-block">
+                                                    Placed {{ order['created_at'].strftime('%b %d, %Y %H:%M') }}
+                                                    {% if order['user_username'] %} · {{ order['user_username'] }}{% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="text-end">
+                            <span class="pill text-capitalize">{{ order['status'] }}</span>
+                                                <div class="fw-semibold mt-2">${{ "%.2f"|format(order['total_amount']) }}</div>
+                                            </div>
+                                        </summary>
+                                        <div class="product-edit-card">
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-12 col-md-6">
+                                                    <h3 class="h6 text-uppercase text-muted mb-2">Ship to</h3>
+                                                    <p class="mb-1 fw-semibold">{{ order['contact_name'] }}</p>
+                                                    <p class="mb-1 text-muted small">{{ order['contact_email'] }}</p>
+                                                    <p class="mb-0 text-muted small">
+                                                        {{ order['shipping_address']|replace('\n', '<br>')|safe }}<br>
+                                                        {{ order['shipping_city'] }}{% if order['shipping_region'] %}, {{ order['shipping_region'] }}{% endif %} {{ order['shipping_postal'] }}<br>
+                                                        {{ order['shipping_country'] }}
+                                                    </p>
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <h3 class="h6 text-uppercase text-muted mb-2">Summary</h3>
+                                                    <p class="mb-1 text-muted small">Seller: {{ order['seller_name'] or 'Unassigned' }}</p>
+                                                    <p class="mb-1 text-muted small">Items: {{ order['item_count'] }}</p>
+                                                    {% if order['notes'] %}
+                                                        <p class="mb-0 text-muted small">Notes: {{ order['notes'] }}</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% if order['items'] %}
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm align-middle mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th scope="col">Product</th>
+                                                                <th scope="col" class="text-center">Qty</th>
+                                                                <th scope="col" class="text-end">Unit price</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for item in order['items'] %}
+                                                                <tr>
+                                                                    <td>
+                                                                        <div class="fw-semibold">{{ item['product_name'] }}</div>
+                                                                        <div class="text-muted small">{% if item['product_sku'] %}SKU {{ item['product_sku'] }}{% else %}No SKU{% endif %}</div>
+                                                                    </td>
+                                                                    <td class="text-center">{{ item['quantity'] }}</td>
+                                                                    <td class="text-end">${{ "%.2f"|format(item['unit_price']) }}</td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {% else %}
+                                                <p class="text-muted small mb-0">No line items recorded for this order.</p>
+                                            {% endif %}
+                                        </div>
+                                    </details>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state flex-grow-1 d-flex flex-column justify-content-center mt-4">
+                                <strong>No orders yet.</strong>
+                                <p class="text-muted mb-0">Customer checkouts will appear here automatically.</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
