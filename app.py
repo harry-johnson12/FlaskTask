@@ -147,6 +147,244 @@ REGION_OPTIONS = [
     "Wisconsin",
     "Wyoming",
 ]
+COUNTRY_REGION_MAP: dict[str, list[str]] = {
+    "United States": REGION_OPTIONS,
+    "Canada": [
+        "Alberta",
+        "British Columbia",
+        "Manitoba",
+        "New Brunswick",
+        "Newfoundland and Labrador",
+        "Nova Scotia",
+        "Ontario",
+        "Prince Edward Island",
+        "Quebec",
+        "Saskatchewan",
+        "Northwest Territories",
+        "Nunavut",
+        "Yukon",
+    ],
+    "United Kingdom": [
+        "England",
+        "Scotland",
+        "Wales",
+        "Northern Ireland",
+        "Isle of Man",
+        "Channel Islands",
+    ],
+    "Germany": [
+        "Baden-Wurttemberg",
+        "Bavaria",
+        "Berlin",
+        "Brandenburg",
+        "Bremen",
+        "Hamburg",
+        "Hesse",
+        "Lower Saxony",
+        "Mecklenburg-Vorpommern",
+        "North Rhine-Westphalia",
+        "Rhineland-Palatinate",
+        "Saarland",
+        "Saxony",
+        "Saxony-Anhalt",
+        "Schleswig-Holstein",
+        "Thuringia",
+    ],
+    "France": [
+        "Auvergne-Rhone-Alpes",
+        "Bourgogne-Franche-Comte",
+        "Bretagne",
+        "Centre-Val de Loire",
+        "Corse",
+        "Grand Est",
+        "Hauts-de-France",
+        "Ile-de-France",
+        "Normandie",
+        "Nouvelle-Aquitaine",
+        "Occitanie",
+        "Pays de la Loire",
+        "Provence-Alpes-Cote d'Azur",
+    ],
+    "Australia": [
+        "Australian Capital Territory",
+        "New South Wales",
+        "Northern Territory",
+        "Queensland",
+        "South Australia",
+        "Tasmania",
+        "Victoria",
+        "Western Australia",
+    ],
+    "New Zealand": [
+        "Auckland",
+        "Bay of Plenty",
+        "Canterbury",
+        "Gisborne",
+        "Hawke's Bay",
+        "Manawatu-Wanganui",
+        "Marlborough",
+        "Nelson",
+        "Northland",
+        "Otago",
+        "Southland",
+        "Taranaki",
+        "Tasman",
+        "Waikato",
+        "Wellington",
+        "West Coast",
+    ],
+    "Singapore": ["Singapore"],
+    "Japan": [
+        "Hokkaido",
+        "Aomori",
+        "Iwate",
+        "Miyagi",
+        "Akita",
+        "Yamagata",
+        "Fukushima",
+        "Ibaraki",
+        "Tochigi",
+        "Gunma",
+        "Saitama",
+        "Chiba",
+        "Tokyo",
+        "Kanagawa",
+        "Niigata",
+        "Toyama",
+        "Ishikawa",
+        "Fukui",
+        "Yamanashi",
+        "Nagano",
+        "Gifu",
+        "Shizuoka",
+        "Aichi",
+        "Mie",
+        "Shiga",
+        "Kyoto",
+        "Osaka",
+        "Hyogo",
+        "Nara",
+        "Wakayama",
+        "Tottori",
+        "Shimane",
+        "Okayama",
+        "Hiroshima",
+        "Yamaguchi",
+        "Tokushima",
+        "Kagawa",
+        "Ehime",
+        "Kochi",
+        "Fukuoka",
+        "Saga",
+        "Nagasaki",
+        "Kumamoto",
+        "Oita",
+        "Miyazaki",
+        "Kagoshima",
+        "Okinawa",
+    ],
+    "India": [
+        "Andhra Pradesh",
+        "Arunachal Pradesh",
+        "Assam",
+        "Bihar",
+        "Chhattisgarh",
+        "Goa",
+        "Gujarat",
+        "Haryana",
+        "Himachal Pradesh",
+        "Jharkhand",
+        "Karnataka",
+        "Kerala",
+        "Madhya Pradesh",
+        "Maharashtra",
+        "Manipur",
+        "Meghalaya",
+        "Mizoram",
+        "Nagaland",
+        "Odisha",
+        "Punjab",
+        "Rajasthan",
+        "Sikkim",
+        "Tamil Nadu",
+        "Telangana",
+        "Tripura",
+        "Uttar Pradesh",
+        "Uttarakhand",
+        "West Bengal",
+        "Andaman and Nicobar Islands",
+        "Chandigarh",
+        "Dadra and Nagar Haveli and Daman and Diu",
+        "Delhi",
+        "Jammu and Kashmir",
+        "Ladakh",
+        "Lakshadweep",
+        "Puducherry",
+    ],
+    "Brazil": [
+        "Acre",
+        "Alagoas",
+        "Amapa",
+        "Amazonas",
+        "Bahia",
+        "Ceara",
+        "Distrito Federal",
+        "Espirito Santo",
+        "Goias",
+        "Maranhao",
+        "Mato Grosso",
+        "Mato Grosso do Sul",
+        "Minas Gerais",
+        "Para",
+        "Paraiba",
+        "Parana",
+        "Pernambuco",
+        "Piaui",
+        "Rio de Janeiro",
+        "Rio Grande do Norte",
+        "Rio Grande do Sul",
+        "Rondonia",
+        "Roraima",
+        "Santa Catarina",
+        "Sao Paulo",
+        "Sergipe",
+        "Tocantins",
+    ],
+    "Mexico": [
+        "Aguascalientes",
+        "Baja California",
+        "Baja California Sur",
+        "Campeche",
+        "Chiapas",
+        "Chihuahua",
+        "Coahuila",
+        "Colima",
+        "Durango",
+        "Guanajuato",
+        "Guerrero",
+        "Hidalgo",
+        "Jalisco",
+        "Mexico City",
+        "State of Mexico",
+        "Michoacan",
+        "Morelos",
+        "Nayarit",
+        "Nuevo Leon",
+        "Oaxaca",
+        "Puebla",
+        "Queretaro",
+        "Quintana Roo",
+        "San Luis Potosi",
+        "Sinaloa",
+        "Sonora",
+        "Tabasco",
+        "Tamaulipas",
+        "Tlaxcala",
+        "Veracruz",
+        "Yucatan",
+        "Zacatecas",
+    ],
+}
 
 # OpenAI configuration for the AI Project Builder feature.
 OPENAI_KEY_FILE = Path(__file__).with_name("openai_key.txt")
@@ -1030,6 +1268,10 @@ def seller_dashboard() -> str | Response:
         return redirect(url_for("login", next=url_for("seller_dashboard")))
 
     seller = _current_seller()
+    category_options_raw = fetch_product_categories()
+    category_options: list[str] = list(dict.fromkeys(category_options_raw))
+    if "General" not in category_options:
+        category_options.insert(0, "General")
     create_form = {
         "name": "",
         "brand": "",
@@ -1037,7 +1279,7 @@ def seller_dashboard() -> str | Response:
         "price": "",
         "sku": "",
         "inventory_count": "",
-        "category": "",
+        "category": category_options[0] if category_options else "General",
     }
 
     if request.method == "POST":
@@ -1067,6 +1309,12 @@ def seller_dashboard() -> str | Response:
                 flash("Create a seller profile before adding products.", "warning")
                 return redirect(url_for("seller_dashboard"))
 
+            selected_category = _form_text("category") or "General"
+            custom_category = _form_text("category_custom")
+            category_value = custom_category if selected_category == "__custom__" and custom_category else selected_category
+            if not category_value:
+                category_value = "General"
+
             create_form = {
                 "name": _form_text("name"),
                 "brand": _form_text("brand"),
@@ -1074,7 +1322,7 @@ def seller_dashboard() -> str | Response:
                 "price": _form_text("price"),
                 "sku": _form_text("sku"),
                 "inventory_count": _form_text("inventory_count"),
-                "category": _form_text("category") or "General",
+                "category": category_value,
             }
 
             if not (create_form["name"] and create_form["description"] and create_form["price"]):
@@ -1099,7 +1347,7 @@ def seller_dashboard() -> str | Response:
                             sku=create_form["sku"] or None,
                             inventory_count=inventory_value if inventory_value is not None else 0,
                             image_path=image_path,
-                            category=create_form["category"] or "General",
+                            category=category_value,
                             seller_id=int(cast(int, seller["id"])),
                         )
                         flash("Product added to your catalogue.", "success")
@@ -1180,6 +1428,7 @@ def seller_dashboard() -> str | Response:
         seller=seller_refresh,
         create_form=create_form,
         products=seller_products,
+        category_options=category_options,
     )
 
 
@@ -1188,13 +1437,16 @@ def cart() -> str:
     """Display the current basket with totals."""
     items, total = _cart_snapshot()
     checkout_defaults = _checkout_form_defaults()
+    selected_country = checkout_defaults.get("shipping_country") or "United States"
+    region_options = COUNTRY_REGION_MAP.get(selected_country, [])
     return render_template(
         "cart.html",
         items=items,
         total=total,
         checkout_defaults=checkout_defaults,
         country_options=COUNTRY_OPTIONS,
-        region_options=REGION_OPTIONS,
+        region_options=region_options,
+        region_map=COUNTRY_REGION_MAP,
     )
 
 
@@ -1273,6 +1525,11 @@ def checkout():
         errors.append("Postal or ZIP code is required.")
     if not shipping_country:
         errors.append("Include the destination country.")
+    if not shipping_region:
+        errors.append("Select the state or region for the destination.")
+    allowed_regions = COUNTRY_REGION_MAP.get(shipping_country)
+    if allowed_regions and shipping_region and shipping_region not in allowed_regions:
+        errors.append("Pick a region that matches the selected country.")
 
     if errors:
         _remember_checkout_form_submission()

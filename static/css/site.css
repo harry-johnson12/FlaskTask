@@ -1348,12 +1348,6 @@ textarea.form-control::placeholder {
     display: block;
 }
 
-.product-scroll {
-    max-height: 50rem; /* roughly 10 product rows visible before scrolling */
-    overflow-y: auto;
-    padding-right: 0.35rem;
-}
-
 .product-details {
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-lg);

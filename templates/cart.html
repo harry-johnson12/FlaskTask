@@ -110,7 +110,7 @@
                                     </div>
                                     <div class="col-12 col-md-4">
                                         <label class="form-label" for="shipping_region">State / Region</label>
-                                        <select class="form-select" id="shipping_region" name="shipping_region">
+                                        <select class="form-select" id="shipping_region" name="shipping_region" required data-selected-region="{{ checkout_defaults.get('shipping_region', '') }}">
                                             <option value="" {% if not checkout_defaults.get('shipping_region') %}selected{% endif %}>Select a region</option>
                                             {% for option in region_options %}
                                                 <option value="{{ option }}" {% if checkout_defaults.get('shipping_region') == option %}selected{% endif %}>{{ option }}</option>
@@ -180,5 +180,50 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const countrySelect = document.getElementById("shipping_country");
+            const regionSelect = document.getElementById("shipping_region");
+            if (!countrySelect || !regionSelect) return;
+
+            const regionMap = {{ region_map|tojson }};
+            const persistedRegion = regionSelect.dataset.selectedRegion || "";
+
+            const buildRegionOptions = (country, preserveSelection = false) => {
+                const options = regionMap[country] || [];
+                const previous = preserveSelection ? (regionSelect.value || persistedRegion) : "";
+                regionSelect.innerHTML = "";
+
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.disabled = true;
+                placeholder.textContent = options.length ? "Select a region" : "Select a region or N/A";
+                regionSelect.appendChild(placeholder);
+
+                const available = options.length ? options.slice() : ["Other / Not applicable"];
+                if (previous && !available.includes(previous)) {
+                    available.unshift(previous);
+                }
+
+                available.forEach((name) => {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    if (previous && name === previous) option.selected = true;
+                    regionSelect.appendChild(option);
+                });
+
+                placeholder.selected = !regionSelect.value;
+                regionSelect.required = true;
+            };
+
+            const currentCountry = countrySelect.value || countrySelect.options[countrySelect.selectedIndex]?.value || "United States";
+            buildRegionOptions(currentCountry, true);
+
+            countrySelect.addEventListener("change", (event) => {
+                buildRegionOptions(event.target.value, false);
+            });
+        });
+    </script>
 </body>
 </html>

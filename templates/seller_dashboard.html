@@ -79,7 +79,22 @@
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" for="seller-product-category">Category</label>
-                                    <input type="text" class="form-control" id="seller-product-category" name="category" value="{{ create_form.category }}" placeholder="e.g. Robotics">
+                                    <select class="form-select" id="seller-product-category" name="category" required>
+                                        <option value="" disabled {% if not create_form.category %}selected{% endif %}>Select a category</option>
+                                        {% for option in category_options %}
+                                            <option value="{{ option }}" {% if create_form.category == option %}selected{% endif %}>{{ option }}</option>
+                                        {% endfor %}
+                                        <option value="__custom__" {% if create_form.category and create_form.category not in category_options %}selected{% endif %}>Other (add new)</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        class="form-control mt-2 {% if not create_form.category or create_form.category in category_options %}d-none{% endif %}"
+                                        id="seller-category-custom"
+                                        name="category_custom"
+                                        value="{% if create_form.category and create_form.category not in category_options %}{{ create_form.category }}{% endif %}"
+                                        placeholder="Enter a category"
+                                    >
+                                    <div class="form-text">Pick an existing category or add a new one.</div>
                                 </div>
                                 <div class="mb-4">
                                     <label class="form-label" for="seller-product-image">Product image</label>
@@ -99,7 +114,7 @@
                                 <span class="pill">{{ products|length }} live</span>
                             </div>
                             {% if products %}
-                                <div class="admin-product-list">
+                                <div class="admin-product-list" aria-label="Product list">
                                     {% for product in products %}
                                     <details class="product-details" {% if loop.first %}open{% endif %}>
                                         <summary class="product-summary">
@@ -221,5 +236,25 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const categorySelect = document.getElementById("seller-product-category");
+            const customInput = document.getElementById("seller-category-custom");
+
+            if (!categorySelect || !customInput) return;
+
+            const syncCustomCategory = () => {
+                const useCustom = categorySelect.value === "__custom__";
+                customInput.classList.toggle("d-none", !useCustom);
+                customInput.required = useCustom;
+                if (!useCustom) {
+                    customInput.value = "";
+                }
+            };
+
+            categorySelect.addEventListener("change", syncCustomCategory);
+            syncCustomCategory();
+        });
+    </script>
 </body>
 </html>
