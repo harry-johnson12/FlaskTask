@@ -731,7 +731,9 @@ def _generate_project_builder_recommendations(
                         "Use the notes field on each item to describe why it matters or what it connects to. "
                         "In insights, summarize what additional gear might be needed (\"missing\"), "
                         "what each cluster of components does (\"component_roles\"), and high-level assembly steps (\"assembly\"). "
-                        "If the catalog cannot satisfy the prompt, respond with empty arrays and explain the gap in insights."
+                        "If the prompt is broad or only one or two words, infer a practical starter kit for that domain "
+                        "(e.g., general-purpose PC/workstation parts, robotics starter stack, sensor kit) and prefer high-stock, versatile parts. "
+                        "Only return empty arrays if the catalog truly cannot satisfy the request; otherwise always propose at least one viable bundle."
                     ),
                 }
             ],

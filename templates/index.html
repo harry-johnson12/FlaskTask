@@ -236,8 +236,16 @@
             };
 
             const setStatus = (message, variant = "muted") => {
-                statusEl.textContent = message;
+                if (!statusEl) return;
+                const lower = (message || "").toLowerCase();
+                const showDots = variant === "muted" && lower.includes("thinking");
                 statusEl.dataset.variant = variant;
+                statusEl.setAttribute("aria-busy", showDots ? "true" : "false");
+                if (showDots) {
+                    statusEl.innerHTML = `${message.replace(/\\.*$/, "")}<span class="loading-dots" aria-hidden="true"><span></span><span></span><span></span></span>`;
+                } else {
+                    statusEl.textContent = message;
+                }
             };
 
             const toggleLoading = (loading) => {
@@ -326,7 +334,7 @@
                 }
 
                 toggleLoading(true);
-                setStatus("Thinking…", "muted");
+                setStatus("Thinking", "muted");
 
                 try {
                     const response = await fetch(recommendUrl, {
