@@ -1016,6 +1016,12 @@ def service_worker() -> Response:
     return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
 
 
+@app.route("/.well-known/appspecific/com.chrome.devtools.json")
+def chrome_devtools_manifest() -> Response:
+    """Provide an empty manifest to quiet Chrome DevTools lookups."""
+    return jsonify({})
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def signup() -> str | Response:
     """Register a new user account."""

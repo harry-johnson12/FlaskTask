@@ -232,6 +232,19 @@ code {
     }
 }
 
+@media (min-width: 768px) {
+    .navbar-toggle {
+        display: none;
+    }
+
+    .navbar-mobile-panel {
+        position: static;
+        display: flex;
+        padding: 0;
+        box-shadow: none;
+        background: transparent;
+    }
+}
 @media (min-width: 1200px) {
     .navbar-nav.gap-2 {
         gap: clamp(0.75rem, 1.2vw, 1.4rem) !important;
@@ -255,6 +268,48 @@ code {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
+}
+
+.navbar-toggle {
+    display: none;
+    border: 1px solid var(--border-soft);
+    background: #fff;
+    border-radius: 999px;
+    padding: 0.4rem 0.65rem;
+    gap: 0.2rem;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(16, 16, 20, 0.08);
+}
+
+.navbar-toggle-bar {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--ink-primary);
+    border-radius: 999px;
+}
+
+.navbar-mobile-panel {
+    display: none;
+    flex: 1 1 auto;
+    align-items: center;
+}
+
+@media (min-width: 768px) {
+    .navbar-toggle {
+        display: none;
+    }
+
+    .navbar-mobile-panel {
+        position: static;
+        display: flex;
+        padding: 0;
+        box-shadow: none;
+        background: transparent;
+    }
 }
 
 .cart-count {
@@ -1431,6 +1486,154 @@ textarea.form-control::placeholder {
 
     .grid-span-2 {
         grid-column: span 1;
+    }
+}
+
+@media (max-width: 767px) {
+    .page-shell {
+        padding: 1.5rem 0 1.8rem;
+    }
+
+    .hero-card,
+    .content-card,
+    .product-card,
+    .admin-card {
+        padding: 1.25rem;
+    }
+
+    .hero-card::after,
+    .content-card::after,
+    .admin-card::after {
+        display: none;
+    }
+
+    .navbar {
+        padding-block: 0.55rem;
+    }
+
+    .navbar .container {
+        position: relative;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .navbar-brand {
+        margin: 0;
+    }
+
+    .navbar-brand img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .navbar-toggle {
+        display: inline-flex;
+        margin-left: auto;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--border-soft);
+        box-shadow: 0 8px 18px rgba(16, 16, 20, 0.1);
+    }
+
+    .navbar-mobile-panel {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: #fff;
+        padding: 0.5rem 0.85rem 0.75rem;
+        border: 1px solid var(--border-soft);
+        box-shadow: 0 14px 24px rgba(16, 16, 20, 0.08);
+        border-radius: var(--radius-lg);
+        z-index: 200;
+    }
+
+    .navbar-mobile-panel.is-open {
+        display: block;
+    }
+
+    .navbar-mobile-panel .navbar-nav {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        width: 100%;
+    }
+
+    .navbar-nav.ms-auto,
+    .navbar-nav.flex-grow-1 {
+        width: 100%;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 0.25rem;
+        overflow: visible;
+        padding-bottom: 0;
+    }
+
+    .navbar-nav.ms-auto > *,
+    .navbar-nav.flex-grow-1 > * {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    .navbar-search {
+        width: 100%;
+        margin: 0.2rem 0 0.25rem;
+        order: 10;
+    }
+
+    .navbar-search-input {
+        padding: 0.45rem 3rem 0.45rem 0.9rem;
+        font-size: 0.9rem;
+    }
+
+    .nav-link {
+        width: 100%;
+        padding: 0.4rem 0.65rem;
+        font-size: 0.95rem;
+    }
+
+    .hero-card-home {
+        padding: 1.25rem 1.4rem;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .mini-stat strong {
+        font-size: 1.05rem;
+    }
+
+    .landing-left,
+    .landing-right {
+        gap: 1rem;
+    }
+
+    .quantity-input {
+        width: 3.5rem;
+    }
+
+    .product-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .banner-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .navbar-nav.ms-auto,
+    .navbar-nav.flex-grow-1 {
+        order: 2;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
     }
 }
 
