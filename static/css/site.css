@@ -1614,6 +1614,12 @@ textarea.form-control::placeholder {
         width: 100%;
     }
 
+    .navbar-mobile-panel .user-pill {
+        width: auto !important;
+        align-self: flex-start;
+        display: inline-flex;
+    }
+
     .navbar-search {
         width: 100%;
         margin: 0.2rem 0 0.25rem;

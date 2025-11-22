@@ -26,15 +26,7 @@
 
     <main class="page-shell">
         <div class="container">
-            {% with messages = get_flashed_messages(with_categories=True) %}
-                {% if messages %}
-                    <div class="flash-messages mb-4">
-                        {% for category, message in messages %}
-                            <div class="flash flash-{{ category }}">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% include 'shared/_flash_messages.html' %}
 
             <div class="row grid-tight align-items-stretch">
                 <div class="col-12 col-xl-6 mb-4 mb-xl-0">
