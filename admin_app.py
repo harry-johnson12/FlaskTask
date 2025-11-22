@@ -19,9 +19,7 @@ from database import (
     get_user_by_username,
     init_db,
 )
-from security import hash_password, verify_password
-from app import _validate_password  # type: ignore  # reuse password policy
-from security import hash_password, verify_password
+from security import hash_password, validate_password, verify_password
 
 # Ensure tables exist before the admin panel starts serving requests.
 init_db()
@@ -108,7 +106,8 @@ def logout():
 @admin_app.route("/service-worker.js")
 def admin_service_worker():
     """Serve the shared PWA service worker for admin pages."""
-    return send_from_directory(admin_app.static_folder, "service-worker.js", mimetype="application/javascript")
+    static_folder = admin_app.static_folder or "static"
+    return send_from_directory(static_folder, "service-worker.js", mimetype="application/javascript")
 
 
 @admin_app.route("/", methods=["GET", "POST"])
@@ -134,7 +133,7 @@ def dashboard():
                 flash("That username already exists.", "danger")
                 return redirect(url_for("dashboard"))
 
-            password_error = _validate_password(username, password)
+            password_error = validate_password(username, password)
             if password_error:
                 flash(password_error, "warning")
                 return redirect(url_for("dashboard"))
@@ -152,7 +151,7 @@ def dashboard():
                 return redirect(url_for("dashboard"))
 
             admin_user = _current_admin()
-            if admin_user and int(admin_user["id"]) == target_user_id:
+            if admin_user and int(cast(int, admin_user["id"])) == target_user_id:
                 flash("You cannot delete the currently signed-in admin.", "warning")
                 return redirect(url_for("dashboard"))
 
@@ -178,12 +177,12 @@ def dashboard():
 
     seller_lookup = {seller["user_id"]: seller for seller in sellers}
     seller_products = {
-        int(seller["id"]): fetch_seller_products(int(seller["id"])) for seller in sellers
+        int(seller["id"]): fetch_seller_products(int(seller["id"])) for seller in sellers if isinstance(seller["id"], (int, str))
     }
     user_cards: list[dict[str, object]] = []
     for user in users:
         seller = seller_lookup.get(user["id"])
-        products = seller_products.get(int(seller["id"])) if seller else []
+        products = seller_products.get(int(seller["id"])) if seller and isinstance(seller["id"], (int, str)) else []
         user_cards.append(
             {
                 "user": user,

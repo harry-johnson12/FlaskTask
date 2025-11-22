@@ -1,12 +1,20 @@
 {% set rating_value = (avg or 0)|float %}
-{% set percent = (rating_value / 5 * 100) %}
-{% if percent < 0 %}
-    {% set percent = 0 %}
-{% elif percent > 100 %}
-    {% set percent = 100 %}
-{% endif %}
-<span class="rating-stars" aria-hidden="true">
-    <span class="rating-stars-fill" style="width: {{ '%.0f'|format(percent) }}%"></span>
+{% set raw_percent = (rating_value / 5) * 100 %}
+{% set percent_int = 0 if raw_percent < 0 else (100 if raw_percent > 100 else raw_percent|int) %}
+<span class="rating-stars" aria-hidden="true" data-rating-percent="{{ percent_int }}">
+    <span class="rating-stars-fill"></span>
 </span>
+<script>
+(() => {
+    const host = document.currentScript?.previousElementSibling;
+    if (!host) return;
+    const pct = parseInt(host.getAttribute("data-rating-percent") || "0", 10);
+    if (Number.isNaN(pct)) return;
+    const fill = host.querySelector(".rating-stars-fill");
+    if (fill) {
+        fill.style.width = `${pct}%`;
+    }
+})();
+</script>
 <span class="rating-value">{{ '%.1f'|format(rating_value) }}/5</span>
 <span class="visually-hidden">Rated {{ '%.1f'|format(rating_value) }} out of 5</span>

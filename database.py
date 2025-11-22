@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, Mapping, Optional
+from typing import Dict, Iterable, Iterator, Mapping, Optional, Sequence
 
 from sqlalchemy import (
     Boolean,
@@ -16,12 +16,15 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    asc,
+    desc,
     and_,
     create_engine,
     delete,
     func,
     or_,
     select,
+    cast,
     update,
 )
 from sqlalchemy.orm import (
@@ -37,6 +40,29 @@ from sqlalchemy.sql import Select
 
 from seed_data.product_catalog import PRODUCT_CATALOG
 from security import decrypt_sensitive_value, encrypt_sensitive_value, hash_password
+
+# --------------------------------------------------------------------------------------
+# Small coercion helpers
+# --------------------------------------------------------------------------------------
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    """Best-effort conversion to int with a fallback."""
+
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    """Best-effort conversion to float with a fallback."""
+
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return default
+
 
 # --------------------------------------------------------------------------------------
 # SQLAlchemy setup
@@ -288,9 +314,9 @@ def seed_data() -> None:
                         name=product["name"],
                         brand=product["brand"],
                         description=product["description"],
-                        price=float(product["price_aud"]),
+                        price=_as_float(product.get("price_aud")),
                         sku=product.get("sku"),
-                        inventory_count=int(product["inventory"]),
+                        inventory_count=_as_int(product.get("inventory")),
                         image_path=product["image_path"],
                         category=product["category"],
                     )
@@ -516,19 +542,25 @@ def fetch_products(
     if filters:
         stmt = stmt.where(and_(*filters))
 
-    order_map = {
-        "newest": [Product.id.desc()],
-        "oldest": [Product.id.asc()],
-        "price_low": [Product.price.asc(), Product.id.desc()],
-        "price_high": [Product.price.desc(), Product.id.desc()],
-        "inventory_low": [Product.inventory_count.asc(), Product.id.desc()],
-        "inventory_high": [Product.inventory_count.desc(), Product.id.desc()],
-        "name_az": [func.lower(Product.name).asc(), Product.id.desc()],
-        "name_za": [func.lower(Product.name).desc(), Product.id.desc()],
-        "rating_high": [avg_rating_expr.desc(), review_count_expr.desc(), Product.id.desc()],
-        "rating_low": [avg_rating_expr.asc(), review_count_expr.desc(), Product.id.desc()],
-    }
-    stmt = stmt.order_by(*order_map.get(sort, order_map["newest"]))
+    rating_expr = cast(avg_rating_expr, Float)
+    review_expr = cast(review_count_expr, Integer)
+
+    if sort == "rating_high":
+        stmt = stmt.order_by(rating_expr.desc(), review_expr.desc(), Product.id.desc())
+    elif sort == "rating_low":
+        stmt = stmt.order_by(rating_expr.asc(), review_expr.desc(), Product.id.desc())
+    else:
+        order_map = {
+            "newest": [Product.id.desc()],
+            "oldest": [Product.id.asc()],
+            "price_low": [Product.price.asc(), Product.id.desc()],
+            "price_high": [Product.price.desc(), Product.id.desc()],
+            "inventory_low": [Product.inventory_count.asc(), Product.id.desc()],
+            "inventory_high": [Product.inventory_count.desc(), Product.id.desc()],
+            "name_az": [func.lower(Product.name).asc(), Product.id.desc()],
+            "name_za": [func.lower(Product.name).desc(), Product.id.desc()],
+        }
+        stmt = stmt.order_by(*order_map.get(sort, order_map["newest"]))
 
     with session_scope() as session:
         rows = session.execute(stmt).mappings().all()
@@ -647,7 +679,8 @@ def fetch_users() -> Iterable[Mapping[str, object]]:
 
     with session_scope() as session:
         users = session.execute(select(User).order_by(User.id.desc())).scalars().all()
-        return [_serialize_user(user) for user in users if user]
+        serialized = (_serialize_user(user) for user in users)
+        return [user for user in serialized if user]
 
 
 def create_seller_profile(
@@ -757,16 +790,10 @@ def create_order(
                 product_name = str(item.get("product_name") or "").strip()
                 if not product_name:
                     continue
-                try:
-                    quantity = int(item.get("quantity", 0))
-                except (TypeError, ValueError):
-                    continue
+                quantity = _as_int(item.get("quantity", 0))
                 if quantity <= 0:
                     continue
-                try:
-                    unit_price = float(item.get("unit_price", 0.0))
-                except (TypeError, ValueError):
-                    unit_price = 0.0
+                unit_price = _as_float(item.get("unit_price", 0.0))
                 session.add(
                     OrderItem(
                         order_id=int(order.id),
@@ -890,38 +917,40 @@ def format_order_reference(order_id: int) -> str:
     return f"Reservation GL-{oid:05d}"
 
 
-def _hydrate_orders(rows: list[Mapping[str, object]], session: Session) -> list[dict[str, object]]:
+def _hydrate_orders(rows: Sequence[Mapping[str, object]], session: Session) -> list[dict[str, object]]:
     """Attach decrypted contact details and line items to raw order rows."""
 
     if not rows:
         return []
 
-    order_ids = [int(row["id"]) for row in rows]
-    item_lookup = _order_items_for_ids(session, order_ids)
+    order_ids = [_as_int(row.get("id")) for row in rows if _as_int(row.get("id")) > 0]
+    item_lookup = _order_items_for_ids(session, order_ids) if order_ids else {}
     hydrated: list[dict[str, object]] = []
+
+    def _decrypt(payload: Mapping[str, object], key: str) -> str:
+        return decrypt_sensitive_value(str(payload.get(key) or ""))
 
     for row in rows:
         payload = dict(row)
-        oid = int(payload["id"])
+        oid = _as_int(payload.get("id"))
+        if oid <= 0:
+            continue
         items = item_lookup.get(oid, [])
         payload["items"] = items
-        payload["item_count"] = sum(int(item["quantity"]) for item in items)
+        payload["item_count"] = sum(_as_int(item.get("quantity")) for item in items)
         payload["reference"] = format_order_reference(oid)
-        payload["contact_name"] = decrypt_sensitive_value(payload.get("contact_name"))
-        payload["contact_email"] = decrypt_sensitive_value(payload.get("contact_email"))
-        payload["shipping_address"] = decrypt_sensitive_value(payload.get("shipping_address"))
-        payload["shipping_city"] = decrypt_sensitive_value(payload.get("shipping_city"))
-        if payload.get("shipping_region") is not None:
-            payload["shipping_region"] = decrypt_sensitive_value(payload.get("shipping_region"))
-        else:
-            payload["shipping_region"] = ""
-        payload["shipping_postal"] = decrypt_sensitive_value(payload.get("shipping_postal"))
-        payload["shipping_country"] = decrypt_sensitive_value(payload.get("shipping_country"))
+        payload["contact_name"] = _decrypt(payload, "contact_name")
+        payload["contact_email"] = _decrypt(payload, "contact_email")
+        payload["shipping_address"] = _decrypt(payload, "shipping_address")
+        payload["shipping_city"] = _decrypt(payload, "shipping_city")
+        payload["shipping_region"] = _decrypt(payload, "shipping_region") if payload.get("shipping_region") is not None else ""
+        payload["shipping_postal"] = _decrypt(payload, "shipping_postal")
+        payload["shipping_country"] = _decrypt(payload, "shipping_country")
         hydrated.append(payload)
     return hydrated
 
 
-def fetch_orders() -> list[Mapping[str, object]]:
+def fetch_orders() -> list[dict[str, object]]:
     """Return orders with denormalised customer/seller data."""
 
     order_user = aliased(User)
@@ -950,11 +979,11 @@ def fetch_orders() -> list[Mapping[str, object]]:
         .order_by(Order.id.desc())
     )
     with session_scope() as session:
-        rows = session.execute(stmt).mappings().all()
+        rows = [dict(row) for row in session.execute(stmt).mappings().all()]
         return _hydrate_orders(rows, session)
 
 
-def fetch_orders_for_user(user_id: int) -> list[Mapping[str, object]]:
+def fetch_orders_for_user(user_id: int) -> list[dict[str, object]]:
     """Return all orders tied to a specific user."""
 
     order_user = aliased(User)
@@ -984,11 +1013,11 @@ def fetch_orders_for_user(user_id: int) -> list[Mapping[str, object]]:
         .order_by(Order.id.desc())
     )
     with session_scope() as session:
-        rows = session.execute(stmt).mappings().all()
+        rows = [dict(row) for row in session.execute(stmt).mappings().all()]
         return _hydrate_orders(rows, session)
 
 
-def get_order(order_id: int) -> Optional[Mapping[str, object]]:
+def get_order(order_id: int) -> Optional[dict[str, object]]:
     """Fetch a single order with joined metadata."""
 
     stmt = select(
@@ -1010,7 +1039,7 @@ def get_order(order_id: int) -> Optional[Mapping[str, object]]:
     ).where(Order.id == order_id)
 
     with session_scope() as session:
-        rows = session.execute(stmt).mappings().all()
+        rows = [dict(row) for row in session.execute(stmt).mappings().all()]
         hydrated = _hydrate_orders(rows, session)
         return hydrated[0] if hydrated else None
 

@@ -11,18 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union, cast
 from uuid import uuid4
 
-from flask import (
-    Flask,
-    abort,
-    flash,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    send_from_directory,
-    session,
-    url_for,
-)
+from flask import Flask, abort, flash, g, has_request_context, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 from werkzeug.wrappers import Response
 from werkzeug.utils import secure_filename
@@ -57,7 +46,7 @@ from database import (
     upsert_product_review,
     upsert_recent_product_view,
 )
-from security import hash_password, verify_password
+from security import hash_password, validate_password, verify_password
 
 # Ensure the database and seed data exist before serving.
 init_db()
@@ -409,6 +398,7 @@ PROJECT_BUILDER_INTRO = (
 PROJECT_BUILDER_CATALOG_LIMIT = 0
 PROJECT_BUILDER_MAX_QUANTITY = 6
 _openai_client: OpenAI | None = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+_REQUEST_CACHE_SENTINEL = object()
 
 HERO_VARIANTS: List[Dict[str, str]] = [
     {
@@ -482,6 +472,32 @@ def _parse_numeric_fields(
     return price_value, inventory_value, None
 
 
+def _as_int(value: object, default: int = 0) -> int:
+    """Best-effort conversion to int with a fallback."""
+
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(str(value))
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    """Best-effort conversion to float with a fallback."""
+
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return float(str(value))
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
 def _form_text(field_name: str, default: str = "") -> str:
     """Trim whitespace from form submissions while providing a default."""
     raw_value = request.form.get(field_name)
@@ -499,60 +515,127 @@ def _is_valid_email(value: str) -> bool:
 
 def _current_user() -> Mapping[str, object] | None:
     """Return the authenticated user dict, clearing stale sessions if needed."""
+
+    if has_request_context():
+        cached_user = getattr(g, "_cached_user", _REQUEST_CACHE_SENTINEL)
+        if cached_user is not _REQUEST_CACHE_SENTINEL:
+            return cast(Optional[Mapping[str, object]], cached_user)
+
     user_id = session.get("user_id")
     if user_id is None:
+        if has_request_context():
+            g._cached_user = None
         return None
     try:
         user_id_int = int(user_id)
     except (TypeError, ValueError):
         session.pop("user_id", None)
         session.pop("username", None)
+        if has_request_context():
+            g._cached_user = None
         return None
 
     user = get_user_by_id(user_id_int)
     if not user:
         session.pop("user_id", None)
         session.pop("username", None)
+        if has_request_context():
+            g._cached_user = None
         return None
+    if has_request_context():
+        g._cached_user = user
     return user
 
 
 def _current_user_id() -> int | None:
     """Return the authenticated user id if present."""
+
+    if has_request_context():
+        cached_id = getattr(g, "_cached_user_id", _REQUEST_CACHE_SENTINEL)
+        if cached_id is not _REQUEST_CACHE_SENTINEL:
+            return cast(Optional[int], cached_id)
+
     user = _current_user()
-    if not user:
-        return None
-    # user["id"] is typed as object; cast it to int for the type checker
-    return int(cast(int, user["id"]))
+    user_id_value = int(cast(int, user["id"])) if user else None
+    if has_request_context():
+        g._cached_user_id = user_id_value
+    return user_id_value
 
 
 def _current_seller() -> Mapping[str, object] | None:
     """Return the seller profile for the logged-in user, if any."""
+
+    if has_request_context():
+        cached_seller = getattr(g, "_cached_seller", _REQUEST_CACHE_SENTINEL)
+        if cached_seller is not _REQUEST_CACHE_SENTINEL:
+            return cast(Optional[Mapping[str, object]], cached_seller)
+
     user_id = _current_user_id()
     if not user_id:
+        if has_request_context():
+            g._cached_seller = None
         return None
     seller = get_seller_by_user_id(user_id)
+    if has_request_context():
+        g._cached_seller = seller
     return seller
 
 
 def _get_cart() -> Dict[int, int]:
     """Return the active cart as an integer keyed mapping."""
+
+    if has_request_context():
+        cached_cart = getattr(g, "_cached_cart", _REQUEST_CACHE_SENTINEL)
+        if cached_cart is not _REQUEST_CACHE_SENTINEL:
+            return dict(cast(Dict[int, int], cached_cart))
+
     user_id = _current_user_id()
     if user_id:
-        return fetch_user_cart(user_id)
+        cart = fetch_user_cart(user_id)
+    else:
+        session_cart_raw = session.get("cart")
+        session_cart = session_cart_raw if isinstance(session_cart_raw, dict) else {}
+        cart = {}
+        for pid, qty in (session_cart or {}).items():
+            try:
+                quantity = int(qty)
+            except (TypeError, ValueError):
+                continue
+            if quantity <= 0:
+                continue
+            try:
+                cart[int(pid)] = quantity
+            except (TypeError, ValueError):
+                continue
 
-    session.pop("cart", None)
-    return {}
+    if has_request_context():
+        g._cached_cart = dict(cart)
+    return cart
 
 
 def _store_cart(cart: Dict[int, int]) -> None:
     """Persist the provided cart mapping."""
+
+    normalized: Dict[int, int] = {}
+    for product_id, quantity in cart.items():
+        try:
+            pid = int(product_id)
+            qty = int(quantity)
+        except (TypeError, ValueError):
+            continue
+        if qty <= 0:
+            continue
+        normalized[pid] = qty
+
     user_id = _current_user_id()
     if user_id:
-        replace_user_cart(user_id, cart)
+        replace_user_cart(user_id, normalized)
         session["cart"] = {}
     else:
-        session["cart"] = {}
+        session["cart"] = normalized
+
+    if has_request_context():
+        g._cached_cart = dict(normalized)
     session.modified = True
 
 
@@ -576,7 +659,7 @@ def _cart_snapshot(cart: Optional[Dict[int, int]] = None) -> tuple[list[dict[str
         quantity_lookup[product_id] = quantity_lookup.get(product_id, 0) + max(0, quantity)
 
     products = fetch_products_by_ids(ordered_ids)
-    product_lookup = {int(product["id"]): product for product in products}
+    product_lookup = {int(product["id"]) if isinstance(product["id"], (int, str)) else None: product for product in products if isinstance(product["id"], (int, str))}
     items: list[dict[str, object]] = []
     total = 0.0
 
@@ -587,7 +670,7 @@ def _cart_snapshot(cart: Optional[Dict[int, int]] = None) -> tuple[list[dict[str
         quantity = max(0, quantity_lookup.get(product_id, 0))
         if quantity <= 0:
             continue
-        price = float(product["price"])
+        price = float(product["price"]) if isinstance(product["price"], (int, float, str)) else 0.0
         line_total = price * quantity
         total += line_total
         items.append(
@@ -642,7 +725,7 @@ def _restock_order_inventory(order: Mapping[str, object]) -> None:
         product_id = entry.get("product_id")
         quantity = entry.get("quantity", 0)
         try:
-            pid = int(product_id)
+            pid = int(product_id) if product_id is not None else 0
             qty = int(quantity)
         except (TypeError, ValueError):
             continue
@@ -651,7 +734,7 @@ def _restock_order_inventory(order: Mapping[str, object]) -> None:
         product = get_product(pid)
         if not product:
             continue
-        current_inventory = int(product.get("inventory_count") or 0)
+        current_inventory = max(_as_int(product.get("inventory_count")), 0)
         update_product(pid, inventory_count=current_inventory + qty)
 
 
@@ -680,7 +763,7 @@ def _short_description(text: str, limit: int = 140) -> str:
 
 def _generate_project_builder_recommendations(
     prompt: str,
-) -> tuple[list[dict[str, int]], dict[str, str], Optional[str]]:
+) -> tuple[list[dict[str, Union[int, str]]], dict[str, str], Optional[str]]:
     """Call the OpenAI Responses API to map a project brief to catalog product ids."""
 
     prompt_text = (prompt or "").strip()
@@ -704,13 +787,13 @@ def _generate_project_builder_recommendations(
 
     catalog_payload = [
         {
-            "id": int(prod["id"]),
+            "id": int(str(prod["id"])),
             "name": prod["name"],
             "category": prod.get("category"),
             "brand": prod.get("brand"),
             "description": prod.get("description"),
-            "price": float(prod.get("price") or 0),
-            "inventory_count": int(prod.get("inventory_count") or 0),
+            "price": float(str(prod.get("price") or 0)),
+            "inventory_count": int(str(prod.get("inventory_count") or 0)),
         }
         for prod in catalog_slice
     ]
@@ -751,7 +834,7 @@ def _generate_project_builder_recommendations(
     ]
 
     try:
-        response = _openai_client.responses.create(model=OPENAI_MODEL, input=message_payload, temperature=0.2)
+        response = _openai_client.responses.create(model=OPENAI_MODEL, input=json.dumps(message_payload), temperature=0.2)
     except Exception:
         app.logger.exception("OpenAI request failed for the project builder.")
         return [], {}, "We couldn't reach the AI recommender. Please try again."
@@ -777,8 +860,12 @@ def _generate_project_builder_recommendations(
         app.logger.warning("Unable to parse AI response: %s", exc)
         return [], {}, "The AI response was formatted incorrectly. Please try again."
 
-    items: list[dict[str, int]] = []
-    product_lookup = {int(prod["id"]): prod for prod in catalog_slice}
+    items: list[dict[str, Union[int, str]]] = []
+    product_lookup = {
+        int(str(prod["id"])): prod
+        for prod in catalog_slice
+        if isinstance(prod.get("id"), (int, str)) and str(prod["id"]).isdigit()
+    }
     for entry in parsed.get("items", []):
         try:
             product_id = int(entry.get("product_id") or entry.get("id"))
@@ -792,7 +879,8 @@ def _generate_project_builder_recommendations(
         if not matched:
             continue
 
-        available_stock = max(int(matched.get("inventory_count") or 0), 0)
+        inventory_count = matched.get("inventory_count")
+        available_stock = max(int(inventory_count) if isinstance(inventory_count, (int, float, str)) and str(inventory_count).isdigit() else 0, 0)
         if available_stock <= 0:
             continue
 
@@ -822,28 +910,44 @@ def _hydrate_recommendations(recommendations: list[dict[str, int]]) -> tuple[lis
     if not recommendations:
         return [], 0.0
 
-    product_ids = [item["product_id"] for item in recommendations]
-    products = fetch_products_by_ids(product_ids)
-    product_lookup = {int(prod["id"]): prod for prod in products}
+    normalized_ids: list[int] = []
+    for entry in recommendations:
+        if not isinstance(entry, Mapping):
+            continue
+        pid = _as_int(entry.get("product_id"))
+        if pid:
+            normalized_ids.append(pid)
+
+    products = fetch_products_by_ids(normalized_ids)
+    product_lookup: dict[int, Mapping[str, object]] = {}
+    for prod in products:
+        pid = _as_int(prod.get("id"))
+        if pid:
+            product_lookup[pid] = prod
 
     hydrated: list[dict[str, object]] = []
     subtotal = 0.0
 
     for item in recommendations:
-        product = product_lookup.get(item["product_id"])
+        if not isinstance(item, Mapping):
+            continue
+        pid = _as_int(item.get("product_id"))
+        requested_qty = _as_int(item.get("quantity", 0))
+
+        product = product_lookup.get(pid)
         if not product:
             continue
-        available_stock = max(int(product.get("inventory_count") or 0), 0)
-        quantity = min(int(item["quantity"]), available_stock)
+        available_stock = max(_as_int(product.get("inventory_count")), 0)
+        quantity = min(requested_qty, available_stock)
         if quantity <= 0:
             continue
 
-        unit_price = float(product.get("price") or 0.0)
+        unit_price = _as_float(product.get("price"))
         subtotal += unit_price * quantity
         hydrated.append(
             {
-                "id": int(product["id"]),
-                "product_id": int(product["id"]),
+                "id": _as_int(product.get("id")),
+                "product_id": _as_int(product.get("id")),
                 "name": product["name"],
                 "description": _short_description(str(product["description"])),
                 "unit_price": unit_price,
@@ -907,7 +1011,10 @@ def project_builder_recommend():
     prompt = (payload.get("prompt") or "").strip()
 
     recommendations, insights, error = _generate_project_builder_recommendations(prompt)
-    hydrated, subtotal = _hydrate_recommendations(recommendations)
+    sanitized_recommendations = [
+        {k: v for k, v in item.items() if isinstance(v, int)} for item in recommendations
+    ]
+    hydrated, subtotal = _hydrate_recommendations(sanitized_recommendations)
 
     success = bool(hydrated) and error is None
     if not success and error is None:
@@ -955,7 +1062,8 @@ def project_builder_add_to_cart():
             warnings.append(f"Product {product_id} is no longer available.")
             continue
 
-        available_stock = max(int(product.get("inventory_count") or 0), 0)
+        inventory_count = product.get("inventory_count")
+        available_stock = max(int(inventory_count) if isinstance(inventory_count, (int, float, str)) and str(inventory_count).isdigit() else 0, 0)
         if available_stock <= 0:
             warnings.append(f"{product['name']} is out of stock.")
             continue
@@ -1015,6 +1123,8 @@ def shipping_info() -> str:
 @app.route("/service-worker.js")
 def service_worker() -> Response:
     """Serve the PWA service worker script from the static directory."""
+    if not app.static_folder:
+        abort(500, description="Static folder is not configured.")
     return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
 
 
@@ -1047,7 +1157,7 @@ def signup() -> str | Response:
             flash("That username is already taken.", "warning")
             return render_template("signup.html", username=username, next_url=next_url)
 
-        password_error = _validate_password(username, password)
+        password_error = validate_password(username, password)
         if password_error:
             flash(password_error, "warning")
             return render_template("signup.html", username=username, next_url=next_url)
@@ -1144,7 +1254,7 @@ def products() -> str:
     }
     sort = sort_raw if sort_raw in allowed_sort else "newest"
 
-    available_categories = fetch_product_categories()
+    available_categories = fetch_product_categories() or []
     normalized_categories = {cat.lower(): cat for cat in available_categories}
     category_key = category_raw.lower()
     if category_key in normalized_categories:
@@ -1154,15 +1264,14 @@ def products() -> str:
     else:
         category = "all"
 
-    fetch_kwargs: dict[str, object] = {"sort": sort}
-    if search:
-        fetch_kwargs["search"] = search
-    if stock != "all":
-        fetch_kwargs["stock_filter"] = stock
-    if category != "all":
-        fetch_kwargs["category"] = category
-
-    catalogue = list(fetch_products(**fetch_kwargs))
+    catalogue = list(
+        fetch_products(
+            search=search or None,
+            stock_filter=stock if stock != "all" else None,
+            sort=sort,
+            category=category if category != "all" else None,
+        )
+    )
     user_id = _current_user_id()
     recently_viewed = fetch_recent_products_for_user(user_id, limit=3) if user_id else []
     filters = {
@@ -1229,7 +1338,8 @@ def product_detail(product_id: int) -> Union[str, Response]:
             return redirect(url_for("product_detail", product_id=product_id))
 
         cart = _get_cart()
-        available_stock = int(product.get("inventory_count") or 0)
+        inventory_value = product.get("inventory_count")
+        available_stock = int(inventory_value) if isinstance(inventory_value, (int, str)) and str(inventory_value).isdigit() else 0
         if available_stock <= 0:
             flash("This product is currently out of stock.", "warning")
             return redirect(url_for("product_detail", product_id=product_id))
@@ -1373,7 +1483,8 @@ def seller_dashboard() -> str | Response:
 
             product = get_product(product_id)
             seller_id = int(cast(int, seller["id"]))
-            if not product or int(product.get("seller_id") or 0) != seller_id:
+            seller_id_value = product.get("seller_id") if product else None
+            if not product or not isinstance(seller_id_value, (int, str)) or int(seller_id_value) != seller_id:
                 flash("You can only manage products that belong to you.", "danger")
                 return redirect(url_for("seller_dashboard"))
 
@@ -1459,7 +1570,7 @@ def cart() -> str:
 
 
 @app.route("/orders")
-def orders_history() -> str:
+def orders_history() -> str | Response:
     """Allow authenticated users to review their recent orders."""
     user_id = _current_user_id()
     if not user_id:
@@ -1480,7 +1591,7 @@ def cancel_order(order_id: int):
         return redirect(url_for("login", next=url_for("orders_history")))
 
     order = get_order(order_id)
-    if not order or int(order.get("user_id") or 0) != user_id:
+    if not order or _as_int(order.get("user_id")) != user_id:
         flash("We couldn't find that order.", "danger")
         return redirect(url_for("orders_history"))
 
@@ -1547,10 +1658,14 @@ def checkout():
 
     inventory_messages: list[str] = []
     for entry in items:
-        product = entry["product"]
-        product_id = int(product["id"])
-        available_stock = int(product.get("inventory_count") or 0)
-        requested = int(entry["quantity"])
+        product = entry.get("product")
+        if not isinstance(product, Mapping):
+            continue
+        product_id = _as_int(product.get("id"))
+        available_stock = _as_int(product.get("inventory_count"))
+        requested = _as_int(entry.get("quantity", 0))
+        if product_id <= 0:
+            continue
         if available_stock <= 0:
             cart.pop(product_id, None)
             inventory_messages.append(f"{product['name']} is no longer in stock and was removed from your cart.")
@@ -1571,21 +1686,32 @@ def checkout():
     seller_ids: set[int] = set()
     order_items_payload: list[dict[str, object]] = []
     for entry in items:
-        product = entry["product"]
-        quantity = int(entry["quantity"])
+        product = entry.get("product")
+        if not isinstance(product, Mapping):
+            continue
+        quantity = _as_int(entry.get("quantity", 0))
+        product_id = _as_int(product.get("id"))
+        if quantity <= 0 or product_id <= 0:
+            continue
         try:
-            seller_value = product.get("seller_id")
+            unit_price = float(product.get("price") or 0.0)
+        except (TypeError, ValueError):
+            unit_price = 0.0
+
+        seller_value = product.get("seller_id")
+        try:
             if seller_value is not None:
                 seller_ids.add(int(seller_value))
         except (TypeError, ValueError):
             pass
+
         order_items_payload.append(
             {
-                "product_id": int(product["id"]),
-                "product_name": str(product["name"]),
+                "product_id": product_id,
+                "product_name": str(product.get("name", "")),
                 "product_sku": product.get("sku"),
                 "quantity": quantity,
-                "unit_price": float(product["price"]),
+                "unit_price": unit_price,
             }
         )
 
@@ -1610,10 +1736,14 @@ def checkout():
     )
 
     for entry in items:
-        product = entry["product"]
-        product_id = int(product["id"])
-        available_stock = int(product.get("inventory_count") or 0)
-        new_inventory = max(0, available_stock - int(entry["quantity"]))
+        product = entry.get("product")
+        if not isinstance(product, Mapping):
+            continue
+        product_id = _as_int(product.get("id"))
+        if product_id <= 0:
+            continue
+        available_stock = _as_int(product.get("inventory_count"))
+        new_inventory = max(0, available_stock - _as_int(entry.get("quantity", 0)))
         update_product(product_id, inventory_count=new_inventory)
 
     _store_cart({})
@@ -1652,7 +1782,7 @@ def update_cart(product_id: int):
         cart.pop(product_id, None)
         flash("Removed the product from your cart.", "info")
     else:
-        available_stock = int(product.get("inventory_count") or 0)
+        available_stock = _as_int(product.get("inventory_count"))
         if available_stock <= 0:
             cart.pop(product_id, None)
             flash("That item is no longer in stock and was removed from your cart.", "warning")
@@ -1695,29 +1825,6 @@ def clear_cart():
     _store_cart({})
     flash("Cleared your cart.", "info")
     return redirect(url_for("cart"))
-
-
-def _validate_password(username: str, password: str) -> str | None:
-    """Return an error message if the password fails validation, otherwise None."""
-    lowered = password.lower()
-    username_lower = username.lower()
-
-    if len(password) < 8:
-        return "Password must be at least eight characters."
-    if lowered in {"password", "password1", "letmein", "1234", "12345", "123456", "qwerty"}:
-        return "Please choose a less common password."
-    if lowered == username_lower:
-        return "Password cannot match the username."
-    if lowered in {f"{username_lower}{d}" for d in ("123", "1", "01")}:
-        return "Password is too closely related to the username."
-    if lowered.isdigit():
-        return "Password must include letters in addition to numbers."
-    if lowered.isalpha():
-        return "Password must include at least one number or symbol."
-    if re.match(r"(.)\1{2,}", lowered):
-        return "Password cannot contain the same character repeated three or more times consecutively."
-
-    return None
 
 
 if __name__ == "__main__":

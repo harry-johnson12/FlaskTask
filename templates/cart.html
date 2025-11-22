@@ -178,7 +178,7 @@
             const regionSelect = document.getElementById("shipping_region");
             if (!countrySelect || !regionSelect) return;
 
-            const regionMap = {{ region_map|tojson }};
+            const regionMap = JSON.parse('{{ region_map|tojson|safe }}');
             const persistedRegion = regionSelect.dataset.selectedRegion || "";
 
             const buildRegionOptions = (country, preserveSelection = false) => {

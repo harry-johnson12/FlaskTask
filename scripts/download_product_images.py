@@ -37,16 +37,16 @@ def _http_get(url: str, headers: Optional[dict[str, str]] = None) -> bytes:
         try:
             with COOKIE_OPENER.open(req, timeout=30) as resp:  # type: ignore[arg-type]
                 return resp.read()
-        except (TimeoutError, URLError) as exc:  # type: ignore[attr-defined]
-            last_error = exc
-            time.sleep(1 + attempt)
-            continue
-        except HTTPError as exc:
+        except HTTPError as exc:  # type: ignore[attr-defined]
             last_error = exc
             if exc.code in {429, 503} and attempt < 2:
                 time.sleep(1 + attempt)
                 continue
             raise
+        except (TimeoutError, URLError) as exc:  # type: ignore[attr-defined]
+            last_error = exc
+            time.sleep(1 + attempt)
+            continue
     if last_error:
         raise last_error
     raise RuntimeError(f"Failed to fetch {url}")

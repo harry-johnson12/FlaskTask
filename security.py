@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -43,6 +44,30 @@ def verify_password(password: str, stored_hash: str | bytes | None) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), stored_hash_str.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+
+
+def validate_password(username: str, password: str) -> str | None:
+    """Return an error message if the password fails policy checks, otherwise None."""
+
+    lowered = password.lower()
+    username_lower = username.lower()
+
+    if len(password) < 8:
+        return "Password must be at least eight characters."
+    if lowered in {"password", "password1", "letmein", "1234", "12345", "123456", "qwerty"}:
+        return "Please choose a less common password."
+    if lowered == username_lower:
+        return "Password cannot match the username."
+    if lowered in {f"{username_lower}{d}" for d in ("123", "1", "01")}:
+        return "Password is too closely related to the username."
+    if lowered.isdigit():
+        return "Password must include letters in addition to numbers."
+    if lowered.isalpha():
+        return "Password must include at least one number or symbol."
+    if re.match(r"(.)\1{2,}", lowered):
+        return "Password cannot contain the same character repeated three or more times consecutively."
+
+    return None
 
 
 def _load_sensitive_key() -> bytes:
