@@ -1,5 +1,4 @@
 __pycache__/
 *.pyc
 store.db
-openai_key.txt
 sensitive_key.txt
