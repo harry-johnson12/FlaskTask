@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 store.db
 sensitive_key.txt
+openai_key.txt
