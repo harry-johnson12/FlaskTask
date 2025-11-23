@@ -9,8 +9,8 @@ Built by Harry Johnson for his Software Engineering HSC Task 1. A simple ecommer
 - `security.py`: bcrypt hashing, password policy checks, and Fernet encryption helpers.
 - `templates/`: Jinja templates for storefront, seller, and admin pages.
 - `static/`: CSS, logo, service worker, and runtime uploads (`static/uploads` is created automatically).
-- `scripts/download_product_images.py`: optional helper to download sample catalog images.
 - `seed_data/product_catalog.py`: seeded product data.
+- `seed_data/download_product_images.py`: optional helper to download sample catalog images.
 
 ## Setup
 ```bash
